@@ -31,7 +31,7 @@ await p.evaluate(sd => {
     if (G.phase !== 'play') return
     const w = G.w, t = G.t
     if (w.st !== S.seen) { S.seen = w.st; if (w.st === 'tell') S.stopAt = t + 0.45 + Rb() * 0.15; if (w.st === 'look') S.looks++; if (w.st === 'back' || w.st === 'fake' || w.st === 'idle') S.resumeAt = t + 0.25 }
-    const slip = S.looks === 3 && w.st === 'look' && w.t > 0.3
+    const slip = (S.looks === 3 || S.looks === 14) && w.st === 'look' && w.t > 0.3
     const danger = (w.st === 'tell' || w.st === 'look' || w.st === 'caught') && S.stopAt >= 0 && t >= S.stopAt && !slip
     if (t >= S.next && !danger && t >= S.resumeAt && G.lock <= 0) { S.side = 1 - S.side; const r = nk.sideXY(S.side); F.tapMark(S.side); nk.tap(S.side); S.next = t + 0.13 + Rb() * 0.04 }
   }

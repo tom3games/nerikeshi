@@ -174,8 +174,8 @@ function fresh() {
     combo: 0, maxCombo: 0, lastSide: -1, same: 0, lastValidT: -9, strokes: 0, misses: 0, tears: 0, thrills: 0, strikes: 0, turns: 0,
     lock: 0, items: {}, ate: [], rim: [], fly: [], parts: [], wob: 0, squash: 0, roll: 0, rollV: 0, shake: 0, erase: 0, ink: 0, flash: [0, 0],
     w: { type: 'teacher', st: 'idle', t: 0, dur: 0, next: 4.5, fake: false }, chalkShot: null, lastPopT: -9, lastThrillPop: -9,
-    bub: null, ev: [], et: 0, endReason: '', bigbang: false, gift: R() < 0.55 ? rr(16, 42) : -1, sleepT: rr(9, 22), drum: false, tutDone: false, tutWatch: false,
-    heads: makeHeads(), noWatch: false, forceTell: false, result: null,
+    bub: null, ev: [], et: 0, endReason: '', bigbang: false, loop: 0, outQueued: false, flashBB: 0, gift: R() < 0.55 ? rr(16, 42) : -1, sleepT: rr(9, 22), drum: false, tutDone: false, tutWatch: false,
+    best: null, isBest: false, heads: makeHeads(), noWatch: false, forceTell: false, result: null,
   })
   for (const it of D.ITEMS) G.items[it.id] = 0
 }
@@ -227,11 +227,12 @@ const itemPos = id => { const p = POS[id]; return [p[0] * W, p[1] * H, p[2] * W,
 // ---- 見張り役 ----
 function wType() { const t = D.STAGES[G.stage].watcher; if (t === 'teacher' && gone('teacher')) return null; return t }
 function setW(st, dur) { G.w.st = st; G.w.t = 0; G.w.dur = dur }
-const tellDur = () => G.turns === 0 ? 1.2 : Math.max(0.6, 0.92 - G.stage * 0.032) * rr(0.92, 1.08)
-const interval = () => Math.max(2.1, rr(2.7, 5.4) - G.stage * 0.1)
+const lvl = () => G.stage + G.loop * 10
+const tellDur = () => G.turns === 0 ? 1.2 : Math.max(0.42, 0.92 - lvl() * 0.032) * rr(0.92, 1.08)
+const interval = () => Math.max(1.6, rr(2.7, 5.4) - lvl() * 0.1)
 function startTell() {
   const w = G.w
-  w.fake = G.turns >= 2 && R() < 0.22
+  w.fake = G.turns >= 2 && R() < 0.24
   setW('tell', tellDur()); G.turns++; log('tell', w.type + (w.fake ? ':fake' : ''))
   if (w.type === 'teacher' || w.type === 'cosmic') { loopVol('chalk', 0.0001, 0.05); if (R() < 0.5) sfx('cough', { vol: 0.55, rate: w.type === 'cosmic' ? 0.72 : 1 }) }
   else if (w.type === 'principal') sfx('chime', { vol: 0.8 })
@@ -245,7 +246,7 @@ function wUpdate(dt) {
   if (!type) return
   w.t += dt
   if (w.st === 'idle') {
-    if (!G.noWatch && G.lock <= 0 && G.t >= w.next && (G.turns > 0 || G.forceTell || (G.t > 6.5 && G.strokes >= 12) || G.t > 11)) { G.forceTell = false; startTell() }
+    if (!G.noWatch && (G.lock <= 0 || G.forceTell) && G.t >= w.next && (G.turns > 0 || G.forceTell || (G.t > 6.5 && G.strokes >= 12) || G.t > 11)) { G.forceTell = false; startTell() }
   } else if (w.st === 'tell') {
     if (w.t >= w.dur) {
       if (w.fake) { setW('fake', 1.25); say(type, pick(T().w[type].fake)); log('fake', type) }
@@ -258,16 +259,16 @@ function wUpdate(dt) {
 const watching = () => G.w.type && (G.w.st === 'look' && G.w.t > 0.15)
 
 // ---- 入力 ----
-function tap(side) {
+function tap(side, drag) {
   if (G.phase !== 'play') return false
   G.flash[side] = 1
   if (G.lock > 0) return false
   if (watching()) { caught(); return 'caught' }
+  if (side === G.lastSide && drag) return 'same'
   if (side === G.lastSide) {
     G.same++; G.combo = 0; G.misses++
     sfx('rub', { vol: 0.25, rate: 0.8, dest: 'muf' })
     if (G.same >= 2) { tear(); return 'tear' }
-    if (G.t - G.lastPopT > 0.5) popT(T().miss, 'ink sm')
     return 'miss'
   }
   G.same = 0
@@ -278,7 +279,7 @@ function tap(side) {
   if (thrill > 1) { G.thrills++; if (G.t - G.lastThrillPop > 0.6) { G.lastThrillPop = G.t; popT(T().thrill, 'sm') } }
   const gain = 0.23 * tempo * (1 + Math.min(G.combo, 40) / 100) * thrill
   G.lastSide = side; G.lastValidT = G.t; G.strokes++
-  G.roll = side ? 1 : -1
+  if (!drag) G.roll = side ? 1 : -1
   addP(gain)
   if (!gone('note')) G.erase = Math.min(1, G.erase + 0.0065)
   sfx('rub', { vol: 0.55 + Math.min(0.3, G.combo * 0.01), rate: lerp(0.9, 1.2, G.stage / 9) })
@@ -295,10 +296,12 @@ function caught() {
   sfx('thwack', { vol: 0.9 }); sfx('giggle', { vol: 0.45, delay: 0.25 })
   log('caught', w.type)
   if (w.type === 'teacher' || w.type === 'cosmic') G.chalkShot = { t: 0 }
-  if (G.strikes >= D.STRIKES) { G.endReason = 'confisc'; G.lock = 9; setTimeout0(1.4, () => endSeq('confisc')) }
+  strikeOut()
 }
+function strikeOut() { if (G.strikes >= D.STRIKES && !G.outQueued) { G.outQueued = true; G.endReason = 'out'; G.lock = 9; setTimeout0(1.4, () => endSeq('out')) } }
 function tear() {
-  G.tears++; G.same = 0; sfx('tear', { vol: 0.9 }); popT(T().tear, 'big'); G.shake = 0.5; log('tear', G.tears)
+  G.tears++; G.same = 0; G.strikes++; G.lock = 0.8; sfx('tear', { vol: 0.9 }); popT(T().tear, 'big'); G.shake = 0.5; log('tear', G.tears)
+  strikeOut()
   if (G.w.type && G.w.st === 'idle') { G.w.next = G.t; G.forceTell = true }
 }
 // 仮想時計で動くタイマー（dbg.pause に従う）
@@ -315,7 +318,7 @@ function addP(g) {
     if (to !== from) { G.trans = { from, t: 0 }; popT(T().stageName[s], 'big ink'); sfx('jstage', { vol: 0.6 }); sceneSound(to); const fl = G.fly; G.fly = []; for (const f of fl) landed(f); G.parts = [] }
   }
   if (!G.drum && G.P >= 86.5) { G.drum = true; sfx('drum', { vol: 0.6 }) }
-  if (G.P >= D.BIGBANG && G.phase === 'play') { G.bigbang = true; endSeq('bigbang') }
+  if (G.P >= D.BIGBANG && G.phase === 'play') bigBang()
 }
 let lastFlyT = -9
 function absorbTick() {
@@ -412,13 +415,20 @@ function startGame() {
   window.TM && TM.start()
   log('start', 0)
 }
+function bigBang() {
+  G.loop++; G.bigbang = true; log('bigbang', G.loop)
+  popT(T().bigbang, 'big'); sfx('crash', { vol: 1 }); G.shake = 1.4; G.flashBB = 1
+  const from = G.sceneNow
+  G.P = 0; G.Pv = 0; G.stage = 0; G.drum = false; G.erase = 0; G.ink = 0; G.fly = []; G.parts = []; G.heads = makeHeads()
+  for (const it of D.ITEMS) G.items[it.id] = 0
+  G.trans = { from, t: 0 }; sceneSound('room'); setW('idle', 0); G.w.type = 'teacher'; G.w.next = G.t + 2.5
+  setTimeout0(1.1, () => popT(T().nextPeriod.replace('{n}', G.loop + 1), 'big ink'))
+}
 function endSeq(reason) {
   if (G.phase !== 'play') return
   G.phase = 'endSeq'; G.et = 0; G.endReason = reason; G.lock = 9; log('end', reason)
   loop('heli', null); loopVol('chalk', 0.0001)
-  if (reason === 'bigbang') { popT(T().bigbang, 'big'); sfx('crash', { vol: 1 }); G.shake = 1.4; setTimeout0(1.2, () => { sfx('bell', { vol: 0.8 }) }) }
-  else if (reason === 'confisc') { sfx('crush', { vol: 0.8 }); say(G.w.type || 'teacher', T().confiscLine) }
-  else { sfx('bell', { vol: 0.85 }); if (G.w.type === 'teacher' || G.w.type === 'cosmic') { setW('back', 9); say(G.w.type, T().endLine) } else popT(T().endLine, 'ink') }
+  sfx('crush', { vol: 0.8 }); sfx('bell', { vol: 0.7, delay: 0.6 }); say(G.w.type || 'teacher', T().confiscLine); popT(T().confisc, 'big')
 }
 function update(dt) {
   G.clk += dt
@@ -427,23 +437,22 @@ function update(dt) {
   if (G.scene !== 'play') return
   if (G.phase === 'kiritsu') {
     const k0 = G.kt; G.kt += dt
-    for (let i = 0; i < 3; i++) if (k0 < i * 0.7 && G.kt >= i * 0.7) { popT(T().kiritsu[i], 'big ink'); if (i === 2) sfx('page', { vol: 0.5 }) }
-    if (G.kt >= 2.1) { G.phase = 'play'; loopVol('chalk', 0.32); popT(T().tutTap, 'tut') }
+    for (let i = 0; i < 3; i++) if (k0 < i * 0.45 && G.kt >= i * 0.45) { popT(T().kiritsu[i], 'big ink'); if (i === 2) sfx('page', { vol: 0.5 }) }
+    if (G.kt >= 1.4) { G.phase = 'play'; loopVol('chalk', 0.32); popT(T().tutTap, 'tut') }
   } else if (G.phase === 'play') {
     G.t += dt; G.lock = Math.max(0, G.lock - dt)
     wUpdate(dt); absorbTick()
     if (G.w.st === 'idle' && (G.w.type === 'teacher')) G.ink = Math.min(1, G.ink + dt * 0.03)
     if (G.gift > 0 && G.t >= G.gift && G.w.st === 'idle' && G.sceneNow === 'room') { G.gift = -1; say('back', T().backGift); addP(2); spawnCrumbs(14); log('gift', 1) }
     if (G.sleepT > 0 && G.t >= G.sleepT && !gone('tanaka') && !G.bub) { G.sleepT = G.t + rr(14, 24); say('tanaka', pick(T().tanakaSleep)); sfx('snore', { vol: 0.35 }) }
-    if (G.t >= D.DUR) endSeq('time')
   } else if (G.phase === 'endSeq') {
     G.et += dt
-    if (G.et >= (G.endReason === 'bigbang' ? 3 : 2.5)) { G.phase = 'done'; showResult() }
+    if (G.et >= 2.5) { G.phase = 'done'; showResult() }
   }
   // 見た目
   G.Pv += (G.P - G.Pv) * Math.min(1, dt * 7)
   G.rollV += (G.roll - G.rollV) * Math.min(1, dt * 22)
-  G.wob *= Math.pow(0.04, dt); G.squash *= Math.pow(0.02, dt); G.shake *= Math.pow(0.02, dt)
+  G.flashBB = Math.max(0, (G.flashBB || 0) - dt * 0.9); G.wob *= Math.pow(0.04, dt); G.squash *= Math.pow(0.02, dt); G.shake *= Math.pow(0.02, dt)
   G.flash[0] *= Math.pow(0.005, dt); G.flash[1] *= Math.pow(0.005, dt)
   if (G.trans) { G.trans.t += dt; if (G.trans.t > 0.95) G.trans = null }
   G.sceneNow = D.STAGES[G.stage].scene
@@ -523,7 +532,7 @@ function drawNote() {
 function teacherState() {
   const w = G.w
   if (G.phase === 'kiritsu') return 'front'
-  if (G.phase === 'endSeq' || G.phase === 'done') return G.endReason === 'confisc' ? 'caught' : 'front'
+  if (G.phase === 'endSeq' || G.phase === 'done') return 'caught'
   if (w.type !== 'teacher' && w.type !== 'cosmic') return 'write'
   return w.st === 'idle' ? 'write' : w.st
 }
@@ -698,13 +707,13 @@ function render() {
   drawFly(); drawParts(); drawChalkShot()
   // 見られている間は画面のふちに赤い鉛筆の線
   if (G.w.st === 'look' || G.w.st === 'caught') { cx.globalAlpha = G.w.st === 'caught' ? 0.8 : 0.45 + 0.15 * Math.sin(G.clk * 12); sk(rectP(5 * U, 5 * U, W - 10 * U, H - 10 * U), { col: '#bf3a2c', w: 4, j: 2 }); cx.globalAlpha = 1 }
-  if (G.endReason === 'bigbang' && G.phase !== 'play') { cx.fillStyle = `rgba(255,252,240,${clamp(1 - G.et / 1.6, 0, 1)})`; cx.fillRect(-20, -20, W + 40, H + 40) }
-  if (G.phase === 'play' || G.phase === 'kiritsu') drawHints()
+  if ((G.phase === 'play' || G.phase === 'kiritsu') && G.strokes < 10) drawHints()
+  if (G.flashBB > 0) { cx.fillStyle = `rgba(255,252,240,${G.flashBB})`; cx.fillRect(-20, -20, W + 40, H + 40) }
   cx.restore()
   hud()
 }
 // ---- HUD ----
-const hW = $('#hW'), hS = $('#hS'), hX = $('#hX'), hHand = $('#hHand'), hHour = $('#hHour')
+const hW = $('#hW'), hX = $('#hX')
 let hudKey = ''
 function massG(P) { const M = D.MASS; if (P <= M[0][0]) return M[0][1]; for (let i = 1; i < M.length; i++) if (P <= M[i][0]) { const [p0, m0] = M[i - 1], [p1, m1] = M[i]; return Math.exp(lerp(Math.log(m0), Math.log(m1), (P - p0) / (p1 - p0))) } return M[M.length - 1][1] }
 const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹'
@@ -719,20 +728,30 @@ function fmtMass(g) {
   for (const [v, u] of [[1e44, '載'], [1e40, '正'], [1e36, '澗'], [1e32, '溝'], [1e28, '穣'], [1e24, '万垓'], [1e20, '垓'], [1e16, '京'], [1e12, '兆'], [1e8, '億'], [1e4, '万']]) if (t >= v) return Math.floor(t / v).toLocaleString('ja-JP') + u + 'トン'
   return Math.floor(t) + 'トン'
 }
+function massText(P) { const m = fmtMass(massG(P)); return G.loop ? T().loopMass.replace('{n}', G.loop).replace('{m}', m) : m }
+const scoreOf = () => G.loop * 200 + G.P
 function sizeLbl(P) { let s = T().sizes[0][1]; for (const [p, n] of T().sizes) if (P >= p) s = n; return s + T().sizeSuffix }
 function hud() {
-  const P = G.Pv, key = lang + fmtMass(massG(P)) + sizeLbl(P) + G.strikes
-  if (key !== hudKey) { hudKey = key; hW.textContent = fmtMass(massG(P)); hS.textContent = sizeLbl(P); hX.innerHTML = '<i></i>'.repeat(G.strikes) }
-  const k = clamp((G.t || 0) / D.DUR, 0, 1), min = 40 + k * 50
-  hHand.setAttribute('transform', `rotate(${min * 6} 22 22)`); hHour.setAttribute('transform', `rotate(${(10 + min / 60) * 30 - 123.7} 22 22)`)
+  const m = massText(G.Pv), key = m + G.strikes
+  if (key !== hudKey) { hudKey = key; hW.textContent = m; hX.innerHTML = Array.from({ length: D.STRIKES }, (_, i) => `<i class="${i < G.strikes ? 'on' : ''}"></i>`).join('') }
   if (G.bub) placeBub()
 }
 
+// ---- 自己ベスト（この端末だけ） ----
+function loadBest() { try { return JSON.parse(localStorage.getItem('nk_best') || 'null') } catch (e) { return null } }
+function saveBest() {
+  const b = loadBest(), sc = scoreOf()
+  G.isBest = sc > 0.5 && (!b || sc > b.s)
+  if (G.isBest) { G.best = { s: sc, m: massText(G.P), r: rankIdx(), l: G.loop }; try { localStorage.setItem('nk_best', JSON.stringify(G.best)) } catch (e) {} } else G.best = b
+  showBest()
+}
+function showBest() { const b = loadBest(); $('#tBest').textContent = b ? T().best.replace('{m}', b.m) : '' }
+
 // ---- 結果（鑑定書） ----
-function rankIdx() { if (G.bigbang) return 10; const th = [0, 3, 12, 31.5, 40, 50, 60, 70, 89.4, 92]; let r = 0; for (let i = 0; i < th.length; i++) if (G.P >= th[i]) r = i; return r }
+function rankIdx() { if (G.loop) return 10; const th = [0, 3, 12, 31.5, 40, 50, 60, 70, 89.4, 92]; let r = 0; for (let i = 0; i < th.length; i++) if (G.P >= th[i]) r = i; return r }
 function result() {
   const ri = rankIdx(), rk = T().ranks[ri], ate = G.ate.slice()
-  return { rank: ri, title: rk.t, price: rk.price, comment: G.endReason === 'confisc' ? T().confiscC : rk.c, mass: fmtMass(massG(G.P)), size: sizeLbl(G.P), ate, strokes: G.strokes, strikes: G.strikes, conf: G.endReason === 'confisc', P: +G.P.toFixed(2), thrills: G.thrills, maxCombo: G.maxCombo, reason: G.endReason }
+  return { rank: ri, title: G.loop > 1 ? T().loopTitle.replace('{n}', G.loop) : rk.t, price: rk.price, comment: rk.c, mass: massText(G.P), size: G.loop ? T().loopSize : sizeLbl(G.P), ate, strokes: G.strokes, strikes: G.strikes, loop: G.loop, score: +scoreOf().toFixed(2), best: G.best, isBest: G.isBest, P: +G.P.toFixed(2), thrills: G.thrills, maxCombo: G.maxCombo, reason: G.endReason }
 }
 function ateText(r, max = 5) {
   if (!r.ate.length) return T().certNone
@@ -742,20 +761,21 @@ function ateText(r, max = 5) {
 }
 function showResult() {
   allLoopsOff(); loop('bgmT', 0.2)
+  saveBest()
   const r = fillResult()
   sfx(r.rank >= 7 ? 'jgood' : 'jmeh', { vol: 0.7 })
   show('vEnd')
   const c = $('#cert'), st = $('#stamp'); c.classList.remove('in'); st.classList.remove('hit'); void c.offsetWidth; c.classList.add('in')
   setTimeout(() => { st.classList.add('hit'); sfx('thwack', { vol: 0.5, rate: 0.7 }) }, 550)
   drawCertBall($('#certBall'))
-  window.TM && TM.end(Math.round(r.P * 10), r.rank >= 8)
+  window.TM && TM.end(Math.round(r.score * 10), r.rank >= 8)
   log('result', r.rank)
 }
 function fillResult() {
   const r = G.result = result(), t = T()
   $('#cH').textContent = t.cert; $('#cRank').textContent = r.title
   $('#cItem').textContent = t.certItemV
-  $('#cDl').innerHTML = [[t.certMass, r.mass], [t.certSize, r.size], [t.certStroke, t.certStrokeV.replace('{n}', Math.floor(r.strokes / 2))], [t.certStrike, t.certStrikeV.replace('{n}', r.strikes)]].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')
+  $('#cDl').innerHTML = [[t.certMass, r.mass], [t.certSize, r.size], [t.certStroke, t.certStrokeV.replace('{n}', Math.floor(r.strokes / 2))], [t.certBest, r.isBest ? t.certNew : (r.best ? r.best.m : '')]].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')
   $('#cAte').innerHTML = `<b>${t.certAte}</b>${ateText(r)}`
   $('#cPriceL').textContent = t.certPrice; $('#cPrice').textContent = r.price; $('#cCmt').textContent = '「' + r.comment + '」'; $('#cBy').textContent = t.certBy
   const st = $('#stamp'); st.textContent = r.conf ? t.certConf : t.certStamp; st.className = r.conf ? 'conf' : ''
@@ -800,7 +820,7 @@ function applyLang() {
   const d = new Date(), wd = lang === 'ja' ? '日月火水木金土'[d.getDay()] : ''
   $('#tDate').textContent = lang === 'ja' ? `${d.getMonth() + 1}月${d.getDate()}日（${wd}）　3時間目` : `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}  3rd period`
   $('#tH').innerHTML = lang === 'ja' ? '<span>練り消し、</span><span>地球になる</span>' : '<span class="en">The Kneaded Eraser</span><span class="en">Becomes Earth</span>'
-  $('#tSub').textContent = t.sub; $('#bStartT').textContent = t.start
+  showBest(); $('#tSub').textContent = t.sub; $('#bStartT').textContent = t.start
   $('#bHow').textContent = t.how; $('#bLang').textContent = t.lang
   $('#howH').textContent = t.howH; $('#howBody').innerHTML = t.howBody.map(s => `<li>${s}</li>`).join('')
   $('#howCred').innerHTML = `${t.credits}<br><a href="privacy.html" target="_blank" rel="noopener">${t.privacy}</a>`; $('#howClose').textContent = t.howClose
@@ -832,7 +852,22 @@ on('#bPost', () => {
   const text = T().postText.replace('{r}', r.title).replace('{m}', r.mass)
   open('https://x.com/intent/post?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent('https://tom3games.com/play/nerikeshi/'), '_blank')
 })
-cv.addEventListener('pointerdown', e => { e.preventDefault(); const r = cv.getBoundingClientRect(); tap(e.clientX - r.left < r.width / 2 ? 0 : 1) }, { passive: false })
+// なぞる: 消しゴムは指の位置について行き、向きが変わるたびに1回こする。動かさずに離したらタップ（押した側へ1回）
+const PTR = {}, SWIPE = 12
+const fingerRoll = x => { const r = cv.getBoundingClientRect(); return clamp(((x - r.left) / r.width - 0.5) * 2.6, -1.15, 1.15) }
+cv.addEventListener('pointerdown', e => { e.preventDefault(); try { cv.setPointerCapture(e.pointerId) } catch (er) {} PTR[e.pointerId] = { x0: e.clientX, anchor: e.clientX, dir: 0, drag: false } }, { passive: false })
+cv.addEventListener('pointermove', e => {
+  const p = PTR[e.pointerId]; if (!p) return
+  const x = e.clientX
+  if (!p.drag && Math.abs(x - p.x0) >= SWIPE) p.drag = true
+  if (!p.drag) return
+  if (G.phase === 'play' && G.lock <= 0) G.roll = fingerRoll(x)
+  if (p.dir === 0) { if (Math.abs(x - p.anchor) >= SWIPE) { p.dir = Math.sign(x - p.anchor); p.anchor = x; tap(p.dir > 0 ? 1 : 0, true) } }
+  else if ((x - p.anchor) * p.dir > 0) p.anchor = x
+  else if (Math.abs(x - p.anchor) >= SWIPE) { p.dir = -p.dir; p.anchor = x; tap(p.dir > 0 ? 1 : 0, true) }
+})
+const ptrEnd = e => { const p = PTR[e.pointerId]; if (!p) return; delete PTR[e.pointerId]; if (!p.drag && e.type === 'pointerup') { const r = cv.getBoundingClientRect(); tap(p.x0 - r.left < r.width / 2 ? 0 : 1) } }
+cv.addEventListener('pointerup', ptrEnd); cv.addEventListener('pointercancel', ptrEnd)
 cv.addEventListener('contextmenu', e => e.preventDefault())
 addEventListener('keydown', e => { if (e.repeat || G.scene !== 'play') return; const k = e.code; if (k === 'ArrowLeft' || k === 'KeyA' || k === 'KeyF') tap(0); else if (k === 'ArrowRight' || k === 'KeyD' || k === 'KeyJ') tap(1) })
 addEventListener('resize', resize)
@@ -880,7 +915,8 @@ requestAnimationFrame(frame)
 boot()
 
 // 実機・シミュレーターでの通し確認用（?demo=1）。人の速さで本物の pointerdown を送る（1秒に約5回・気づくまで約0.7秒）
-if (/[?&]demo=1/.test(location.search)) {
+if (/[?&]demo=[12]/.test(location.search)) {
+  const swipe = /demo=2/.test(location.search)   // 2 はなぞりで遊ぶ
   muted = true; Snd.setMute(true); setMuteIcons()   // 確認中は絶対に鳴らさない
   const go = () => {
     if (!window.__nkReady) return setTimeout(go, 200)
@@ -893,7 +929,9 @@ if (/[?&]demo=1/.test(location.search)) {
       const danger = w && (w.st === 'tell' || w.st === 'look' || w.st === 'caught') && stopAt >= 0 && t >= stopAt
       if (G.phase === 'play' && !danger && t >= resumeAt) {
         side = 1 - side; const r = cv.getBoundingClientRect()
-        cv.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, clientX: r.left + r.width * (side ? 0.8 : 0.2), clientY: r.top + r.height * 0.72, pointerType: 'touch' }))
+        const o = { bubbles: true, cancelable: true, clientX: r.left + r.width * (side ? 0.8 : 0.2), clientY: r.top + r.height * 0.72, pointerType: 'touch', pointerId: 7 }
+        if (swipe) { if (!G.demoDown) { G.demoDown = 1; cv.dispatchEvent(new PointerEvent('pointerdown', { ...o, clientX: r.left + r.width * 0.5 })) } cv.dispatchEvent(new PointerEvent('pointermove', o)) }
+        else { cv.dispatchEvent(new PointerEvent('pointerdown', o)); cv.dispatchEvent(new PointerEvent('pointerup', o)) }
       }
       setTimeout(step, 170 + Math.random() * 60)
     }
@@ -905,7 +943,7 @@ if (/[?&]demo=1/.test(location.search)) {
 // ---- 検証用の窓口 ----
 window.nk = {
   G, D, tap, start: startGame, result: () => G.result, rankIdx, fmtMass, massG, sizeLbl, lang: () => lang,
-  state: () => ({ phase: G.phase, scene: G.scene, sceneNow: G.sceneNow, t: +((G.t || 0).toFixed(3)), P: +((G.P || 0).toFixed(3)), stage: G.stage, w: G.w && { ...G.w }, strikes: G.strikes, strokes: G.strokes, combo: G.combo, ate: (G.ate || []).slice(), lock: G.lock, bub: G.bub && G.bub.text }),
+  state: () => ({ loop: G.loop, roll: +(G.rollV || 0).toFixed(3), eraserX: G.items && G.items.desk === 0 ? Math.round(eraserPos().x) : null, phase: G.phase, scene: G.scene, sceneNow: G.sceneNow, t: +((G.t || 0).toFixed(3)), P: +((G.P || 0).toFixed(3)), stage: G.stage, w: G.w && { ...G.w }, strikes: G.strikes, strokes: G.strokes, combo: G.combo, ate: (G.ate || []).slice(), lock: G.lock, bub: G.bub && G.bub.text }),
   sideXY: s => { const r = cv.getBoundingClientRect(); return { x: r.left + r.width * (s ? 0.8 : 0.2), y: r.top + r.height * 0.72 } },
   dbg: {
     pause(b = true) { G.paused = b; lastT = performance.now(); acc = 0 },
@@ -913,7 +951,8 @@ window.nk = {
     tick(n = 1) { for (let i = 0; i < n; i++) update(1 / 60) },
     seed(s) { seedV = (s % 2147483646) + 1 },
     setP(p) { G.P = p; G.Pv = p; addP(0); absorbTick() },
-    skipKiritsu() { if (G.phase === 'kiritsu') { G.kt = 2.09; update(1 / 60) } },
+    finish() { for (let k = 0; k < D.STRIKES; k++) { G.lock = 0; G.w.type = G.w.type || 'teacher'; setW('look', 5); G.w.t = 0.3; tap(G.lastSide ? 0 : 1); this.tick(20) } this.tick(300) },
+    skipKiritsu() { if (G.phase === 'kiritsu') { G.kt = 1.39; update(1 / 60) } },
     render,
   },
 }

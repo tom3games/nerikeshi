@@ -95,15 +95,15 @@ await t('キーボードの左右でもこすれる', async () => {
 })
 
 // ---- 台本で: 空振り・破れる・見つかる・フェイント・ギリギリ ----
-await t('同じ側を続けると空振り、3回目でノートが破れて先生が振り向く', async () => {
+await t('同じ側を3回続けて押すと空振り→ビリッ（注意+1・先生が振り向く）', async () => {
   await begin(p, 11)
   const r = await p.evaluate(() => {
     nk.tap(0); nk.dbg.tick(10); const P1 = nk.G.P
     const a = nk.tap(0); nk.dbg.tick(10); const P2 = nk.G.P
     const b = nk.tap(0); nk.dbg.tick(2)
-    return { a, b, P1, P2, tears: nk.G.tears, w: nk.G.w.st }
+    return { a, b, P1, P2, tears: nk.G.tears, strikes: nk.G.strikes, w: nk.G.w.st }
   })
-  expect(r.a === 'miss' && r.b === 'tear' && r.P1 === r.P2 && r.tears === 1 && r.w === 'tell', JSON.stringify(r)); return r
+  expect(r.a === 'miss' && r.b === 'tear' && r.P1 === r.P2 && r.tears === 1 && r.strikes === 1 && r.w === 'tell', JSON.stringify(r)); return r
 })
 await t('振り向く直前（首が動いた間）にこすると2倍（ギリギリ）', async () => {
   await begin(p, 12)
@@ -140,28 +140,27 @@ await t('フェイント（チョーク折れた）の間は押しても見つ�
   })
   expect(r.st === 'fake' && r.res === 'ok' && r.strikes === 0 && r.bub, JSON.stringify(r)); return r
 })
-await t('注意3回で没収→鑑定書に「没収」', async () => {
-  await begin(p, 15)
-  await p.evaluate(() => { const G = nk.G; G.noWatch = true; for (let i = 0; i < 20; i++) { nk.tap(i % 2); nk.dbg.tick(8) } for (let k = 0; k < 3; k++) { G.lock = 0; G.w.st = 'look'; G.w.t = 0.3; G.w.dur = 5; nk.tap(G.lastSide ? 0 : 1); nk.dbg.tick(20) } nk.dbg.tick(400) })
-  await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 })
-  const r = await p.evaluate(() => ({ conf: nk.result().conf, reason: nk.result().reason, stamp: document.getElementById('stamp').textContent, end: !document.getElementById('vEnd').hidden, cmt: document.getElementById('cCmt').textContent }))
-  expect(r.conf && r.reason === 'confisc' && r.stamp === '没収' && r.end && /職員室/.test(r.cmt), JSON.stringify(r)); return r
-})
-await t('何もしない通しは一番下の判定（ただの消しカス）', async () => {
+await t('時間では終わらない: 何もしないで3分たっても授業は続く（注意0・重さほぼ0）', async () => {
   await begin(p, 16)
-  await p.evaluate(() => nk.dbg.tick(60 * 80))
+  const r = await p.evaluate(() => { nk.dbg.tick(60 * 180); return { phase: nk.G.phase, P: nk.G.P, strikes: nk.G.strikes, turns: nk.G.turns } })
+  expect(r.phase === 'play' && r.P < 3 && r.strikes === 0 && r.turns > 10, JSON.stringify(r)); return r
+})
+await t('何もしないまま見つかって終わると一番下の判定（ただの消しカス）', async () => {
+  await p.evaluate(() => nk.dbg.finish())
   await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 })
-  const r = await p.evaluate(() => ({ rank: nk.result().rank, title: nk.result().title, P: nk.result().P }))
+  const r = await p.evaluate(() => ({ rank: nk.result().rank, title: nk.result().title }))
   expect(r.rank === 0, JSON.stringify(r)); return r
 })
-await t('時間切れで鑑定書が出る（重さ・大きさ・取りこんだ物・鑑定額が埋まる）', async () => {
+await t('見つかる＋破る の合計2回で没収→鑑定書（重さ・取りこんだ物・鑑定額・自己ベスト）', async () => {
   await begin(p, 17)
-  await p.evaluate(() => { nk.G.noWatch = true; for (let i = 0; i < 120; i++) { nk.tap(i % 2); nk.dbg.tick(10) } nk.dbg.tick(60 * 80) })
+  await p.evaluate(() => { const G = nk.G; G.noWatch = true; for (let i = 0; i < 120; i++) { nk.tap(i % 2); nk.dbg.tick(10) } nk.tap(G.lastSide); nk.dbg.tick(2); nk.tap(G.lastSide); nk.dbg.tick(60) })
+  const mid = await p.evaluate(() => ({ strikes: nk.G.strikes, phase: nk.G.phase }))
+  await p.evaluate(() => { const G = nk.G; G.lock = 0; G.w.st = 'look'; G.w.t = 0.3; G.w.dur = 5; nk.tap(G.lastSide ? 0 : 1); nk.dbg.tick(400) })
   await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 })
-  await p.waitForTimeout(700)
-  const r = await p.evaluate(() => ({ rank: document.getElementById('cRank').textContent, dl: document.getElementById('cDl').textContent, ate: document.getElementById('cAte').textContent, price: document.getElementById('cPrice').textContent, r: nk.result() }))
+  await p.waitForTimeout(1300)
+  const r = await p.evaluate(() => ({ rank: document.getElementById('cRank').textContent, dl: document.getElementById('cDl').textContent, ate: document.getElementById('cAte').textContent, price: document.getElementById('cPrice').textContent, r: nk.result(), best: localStorage.getItem('nk_best') }))
   await p.screenshot({ path: ROOT + '/shots/v-end.png' })
-  expect(r.rank && /g|トン|kg/.test(r.dl) && r.ate.length > 6 && r.price && r.r.reason === 'time', JSON.stringify(r).slice(0, 300)); return { rank: r.rank, P: r.r.P }
+  expect(mid.strikes === 1 && mid.phase === 'play' && r.r.strikes === 2 && r.r.reason === 'out' && /g|トン|kg/.test(r.dl) && /新記録/.test(r.dl) && r.ate.length > 6 && r.price && r.best, JSON.stringify({ mid, r }).slice(0, 400)); return { rank: r.rank, P: r.r.P }
 })
 await t('鑑定書の練り消しが描けている', async () => { const v = await variance(p, '#certBall'); expect(v > 100, v); return v })
 await t('画像で保存: 1080x1440 の画像が描けてダウンロードされる', async () => {
@@ -190,11 +189,44 @@ await t('全段階を通る: 机→教室→学校→町→日本→地球→宇
   const expectOrder = (await p.evaluate(() => nk.D.ITEMS.filter(i => i.p <= nk.G.P).map(i => i.id).join(',')))
   expect(order === expectOrder && p.errs.length === 0, order + ' / ' + expectOrder + ' ' + p.errs.join('|')); return seen
 })
-await t('育ちすぎるとビッグバンで先に授業が終わる（宇宙をひとつ作った）', async () => {
-  await p.evaluate(() => { nk.dbg.setP(116); nk.dbg.tick(300) })
-  await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 })
-  const r = await p.evaluate(() => ({ reason: nk.result().reason, rank: nk.result().rank, t: nk.G.t }))
-  expect(r.reason === 'bigbang' && r.rank === 10 && r.t < 75, JSON.stringify(r)); return r
+await t('際限なく育つ: ビッグバンで机に戻り2時間目・3時間目（重さは宇宙N個と…）・見張りが速くなる', async () => {
+  const r = await p.evaluate(() => {
+    const G = nk.G, out = []
+    for (let k = 0; k < 2; k++) { G.lock = 0; nk.dbg.setP(116); nk.dbg.step(200); out.push({ loop: G.loop, phase: G.phase, scene: G.sceneNow, P: +G.P.toFixed(1), items: Object.values(G.items).filter(v => v).length, hud: document.getElementById('hW').textContent }) }
+    G.noWatch = true; for (let i = 0; i < 40; i++) { nk.tap(i % 2); nk.dbg.tick(8) }
+    out.push({ P: +G.P.toFixed(2), hud: document.getElementById('hW').textContent })
+    return out
+  })
+  expect(r[0].loop === 1 && r[1].loop === 2 && r[1].phase === 'play' && r[1].scene === 'room' && r[1].items === 0 && /宇宙2個/.test(r[2].hud) && r[2].P > 1, JSON.stringify(r)); return r
+})
+await t('自己ベストがタイトルに出る', async () => {
+  const q = await (await browser.newContext({ locale: 'ja-JP', viewport: { width: 390, height: 844 } })).newPage()
+  await muteContext(q.context()); await q.goto(URL0); await q.waitForFunction(() => window.__nkReady)
+  await q.evaluate(() => localStorage.setItem('nk_best', JSON.stringify({ s: 95, m: '60垓トン', r: 8, l: 0 }))); await q.reload(); await q.waitForFunction(() => window.__nkReady)
+  const t = await q.evaluate(() => document.getElementById('tBest').textContent); await q.context().close()
+  expect(/最高記録.*60垓トン/.test(t), t); return t
+})
+await t('遊び中の画面は重さと注意の印（2つ）と音のボタンだけ', async () => {
+  await begin(p, 22)
+  const r = await p.evaluate(() => ({ marks: document.querySelectorAll('#hX i').length, hudText: document.getElementById('hud').innerText.trim().split('\n').filter(Boolean), clock: !!document.getElementById('hClock') }))
+  expect(r.marks === 2 && r.hudText.length === 1 && !r.clock, JSON.stringify(r)); return r
+})
+await t('本物のマウスでなぞる: 右半分から左へなぞると消しゴムは左へ、向きを変えるたびに1回こする', async () => {
+  await begin(p, 23); await p.evaluate(() => { nk.G.noWatch = true; nk.dbg.pause(false) })
+  const box = await p.evaluate(() => { const r = document.getElementById('cv').getBoundingClientRect(); return { l: r.left, w: r.width, y: r.top + r.height * 0.75 } })
+  const s0 = await p.evaluate(() => nk.G.strokes)
+  await p.mouse.move(box.l + box.w * 0.75, box.y); await p.mouse.down(); await p.mouse.move(box.l + box.w * 0.15, box.y, { steps: 10 }); await p.waitForTimeout(250)
+  const a = await p.evaluate(() => nk.state())
+  await p.mouse.move(box.l + box.w * 0.85, box.y, { steps: 10 }); await p.waitForTimeout(250)
+  const b = await p.evaluate(() => nk.state())
+  await p.mouse.move(box.l + box.w * 0.2, box.y, { steps: 10 }); await p.mouse.up(); await p.waitForTimeout(100)
+  const c = await p.evaluate(() => nk.state())
+  expect(a.roll < -0.5 && a.eraserX < box.w / 2 && b.roll > 0.5 && b.eraserX > box.w / 2 && c.strokes - s0 === 3, JSON.stringify({ a: [a.roll, a.eraserX], b: [b.roll, b.eraserX], n: c.strokes - s0 })); return { left: a.eraserX, right: b.eraserX, strokes: c.strokes - s0 }
+})
+await t('タップ: 左半分を押すと消しゴムは左、右半分なら右', async () => {
+  const r = []
+  for (const s of [0, 1]) { const xy = await p.evaluate(s => nk.sideXY(s), s); await p.mouse.click(xy.x, xy.y); await p.waitForTimeout(250); r.push(await p.evaluate(() => nk.state().roll)) }
+  expect(r[0] < -0.6 && r[1] > 0.6, JSON.stringify(r)); return r
 })
 await t('重さの表示が増え続ける（単位の切り替え）', async () => {
   const r = await p.evaluate(() => { const out = []; let prev = 0, mono = true; for (let P = 0; P <= 115; P += 0.5) { const g = nk.massG(P); if (g < prev) mono = false; prev = g } for (const P of [0, 10, 30, 45, 60, 75, 90, 100, 115]) out.push(nk.fmtMass(nk.massG(P))); return { mono, out } })
@@ -218,7 +250,7 @@ await t('英語に切り替わる（タイトル・遊び方・結果）', async
   await q.click('#bLang')
   const a = await q.evaluate(() => ({ h: document.getElementById('tH').textContent, start: document.getElementById('bStartT').textContent, how: document.getElementById('howBody').textContent.slice(0, 40) }))
   await begin(q, 20)
-  await q.evaluate(() => { nk.G.noWatch = true; for (let i = 0; i < 60; i++) { nk.tap(i % 2); nk.dbg.tick(10) } nk.dbg.tick(60 * 80) })
+  await q.evaluate(() => { nk.G.noWatch = true; for (let i = 0; i < 60; i++) { nk.tap(i % 2); nk.dbg.tick(10) } nk.dbg.finish() })
   await q.waitForFunction(() => nk.G.phase === 'done')
   const b = await q.evaluate(() => ({ rank: document.getElementById('cRank').textContent, h: document.getElementById('cH').textContent, mass: nk.result().mass, again: document.getElementById('bAgain').textContent, home: document.getElementById('tmHome').textContent }))
   await q.screenshot({ path: ROOT + '/shots/v-end-en.png' })
@@ -237,7 +269,7 @@ for (const [w, h, name] of SIZES) {
   await begin(q, 21); await q.evaluate(() => { nk.G.noWatch = true; for (let i = 0; i < 20; i++) { nk.tap(i % 2); nk.dbg.step(8) } })
   views.play = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-play.png` })
   await q.evaluate(() => { nk.dbg.setP(93); nk.dbg.step(120) }); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-space.png` })
-  await q.evaluate(() => { nk.dbg.tick(60 * 80) }); await q.waitForFunction(() => nk.G.phase === 'done'); await q.waitForTimeout(1300)
+  await q.evaluate(() => nk.dbg.finish()); await q.waitForFunction(() => nk.G.phase === 'done'); await q.waitForTimeout(1300)
   views.end = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-end.png` })
   for (const [v, r] of Object.entries(views)) await t(`一画面に収まる ${name} ${w}x${h} ${v}`, async () => { expect(!r.over.length, JSON.stringify(r)) })
   await t(`${name}: はみ出し・エラーなし`, async () => { const o = await overflow(q); expect(o.sw <= o.W && !o.bad.length && !oh.bad.length && !q.errs.length, JSON.stringify(o) + JSON.stringify(oh.bad) + q.errs.join('|')) })
@@ -262,9 +294,20 @@ await t('WebKit: タップで始めて、指で左右交互にこすれる', asy
   for (let i = 0; i < 12; i++) { const s = i % 2 ? R : L; await wp.touchscreen.tap(s.x, s.y); await wp.waitForTimeout(110) }
   const st = await wp.evaluate(() => nk.state()); expect(st.strokes >= 11, JSON.stringify(st)); return st.strokes
 })
+await t('WebKit: 指でなぞる（左へなぞると消しゴムは左・往復でこする）', async () => {
+  const r = await wp.evaluate(async () => {
+    const cv = document.getElementById('cv'), R = cv.getBoundingClientRect(), y = R.top + R.height * 0.75, s0 = nk.G.strokes
+    const ev = (t, x) => cv.dispatchEvent(new PointerEvent(t, { bubbles: true, cancelable: true, clientX: x, clientY: y, pointerId: 3, pointerType: 'touch' }))
+    ev('pointerdown', R.left + R.width * 0.7); for (let i = 1; i <= 10; i++) ev('pointermove', R.left + R.width * (0.7 - 0.06 * i))
+    await new Promise(r => setTimeout(r, 300)); const left = nk.state()
+    for (let i = 1; i <= 10; i++) ev('pointermove', R.left + R.width * (0.1 + 0.07 * i)); await new Promise(r => setTimeout(r, 300)); const right = nk.state(); ev('pointerup', R.left + R.width * 0.8)
+    return { l: left.roll, r: right.roll, n: right.strokes - s0 }
+  })
+  expect(r.l < -0.5 && r.r > 0.5 && r.n === 2, JSON.stringify(r)); return r
+})
 await t('WebKit: 実際には無音（タップで音を鳴らしたあと）', async () => { const r = await wp.evaluate(() => ({ ok: window.__muteOk(), calls: window.__soundCalls })); expect(r.ok && r.calls > 0, JSON.stringify(r)); return r })
 await t('WebKit: 結果まで通してエラーなし', async () => {
-  await wp.evaluate(() => { nk.dbg.pause(); nk.dbg.tick(60 * 80) }); await wp.waitForFunction(() => nk.G.phase === 'done'); await wp.waitForTimeout(600)
+  await wp.evaluate(() => { nk.dbg.pause(); nk.dbg.finish() }); await wp.waitForFunction(() => nk.G.phase === 'done'); await wp.waitForTimeout(600)
   await wp.screenshot({ path: ROOT + '/shots/v-webkit-end.png' })
   expect(wp.errs.length === 0, wp.errs.join('|'))
 })

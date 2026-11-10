@@ -25,6 +25,6 @@ for (const P of (process.env.PS || '14,24,33,44,49.5,56,66,76,85,89.6,96,104').s
   await tapN(6); await p.evaluate(() => nk.dbg.step(60))
   await p.screenshot({ path: `shots/s-${tag}-p${P}.png` })
 }
-await p.evaluate(() => { nk.G.t = 74.9; nk.G.lock = 0; nk.G.w.st = 'idle'; nk.dbg.step(200) }); await p.waitForTimeout(900); await p.screenshot({ path: `shots/s-${tag}-end.png` })
+await p.evaluate(() => { nk.dbg.finish(); nk.dbg.step(1) }); await p.waitForTimeout(900); await p.screenshot({ path: `shots/s-${tag}-end.png` })
 console.log(JSON.stringify(await p.evaluate(() => nk.result())), errs)
 await b.close(); server.kill()

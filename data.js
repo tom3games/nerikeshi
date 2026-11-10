@@ -1,8 +1,7 @@
 // 文言と遊びのデータ（日英）。仕様の正本は ~/Desktop/claudecode/ideas/nerikeshi.md
 const NK_DATA = {
-  DUR: 75,            // 授業1コマ（秒）
-  STRIKES: 3,         // 注意3回で没収
-  BIGBANG: 115,       // ここまで育つとビッグバンで授業が先に終わる
+  STRIKES: 2,         // 注意（見つかる・ノートを破る）2回で没収。時間の制限は無い
+  BIGBANG: 115,       // ここまで育つとビッグバン。机に戻って次の時間（見張りが速くなる）
   // 段階（10ずつ）。scene: 描く場面 / watcher: 見張り役
   STAGES: [
     { scene: 'room', watcher: 'teacher' }, { scene: 'room', watcher: 'teacher' }, { scene: 'room', watcher: 'teacher' },
@@ -27,21 +26,20 @@ const NK_DATA = {
   ],
   TXT: {
     ja: {
-      title: '練り消し、地球になる', sub: '授業中にこっそり育てる',
+      title: '練り消し、地球になる', sub: '授業中にこっそり、どこまで育つか',
       start: '授業をはじめる', how: '遊び方', lang: 'EN',
       loading: '消しカスを集めています',
       howH: '遊び方',
       howBody: [
-        '画面の左と右を<b>交互に</b>トントン。消しゴムがノートをこすって、消しカスが練り消しになる。速いリズムほどよく育つ',
-        '同じ側を続けて押すと空振り。3回続けるとノートが<b>ビリッ</b>と破れて、先生が振り向く',
-        '先生がこっちを向いている間にこすると見つかる。3回で没収',
-        '振り向く直前（首が動いて板書の音が止まった間）にこすると<b>ギリギリ</b>で2倍。大きくなるほど見張りも大きくなる',
+        '指で<b>左右になぞる</b>と消しゴムが指についてきてこする。左と右を交互にタップしてもいい。速いほどよく育つ',
+        '先生がこっちを向いている間にこすると見つかる。同じ側を3回続けて押すとノートが<b>ビリッ</b>と破れる。どちらも<b>2回で没収</b>',
+        '振り向く直前（首が動いて板書の音が止まった間）にこすると<b>ギリギリ</b>で2倍。大きくなるほど見張りも大きく速くなる',
       ],
       howClose: 'とじる',
       credits: '音: soundsnap / Work With Sounds（La Fonderie, CC BY 4.0）/ Thirunavukkarasye-Raveendran（CC BY 3.0）/ Andreas Richter（CC BY 3.0）/ Kenney / rubberduck / Luckius / AntumDeluge / artisticdude / Almitory / Of Far Different Nature / ほか（CC0・Public domain）。登場する学校と人物は架空です',
       privacy: 'プライバシー',
       kiritsu: ['起立', '礼', '着席'],
-      tutTap: '左右交互にトントン', tutWatch: '振り向く！手を止めて',
+      tutTap: '左右になぞってこする', tutWatch: '振り向く！手を止めて',
       thrill: 'ギリギリ', miss: '空振り', tear: 'ビリッ', caught: '見つかった',
       board: '質量保存の法則',
       sizeSuffix: 'くらい',
@@ -77,7 +75,9 @@ const NK_DATA = {
       backGift: 'これも使って',
       chalkHit: 'いてっ',
       endLine: 'はい、今日はここまで',
-      confisc: 'これは没収', confiscLine: '廊下に立ってなさい',
+      confisc: '没収', confiscLine: 'これは没収です',
+      nextPeriod: '{n}時間目', loopMass: '宇宙{n}個と{m}', loopTitle: '宇宙を{n}個作った', loopSize: '宇宙より大きい',
+      best: '最高記録　{m}', certBest: '自己ベスト', certNew: '新記録',
       bigbang: 'ビッグバン',
       // 鑑定書
       cert: '練り消し鑑定書', certItem: '鑑定品', certItemV: '練り消し（2年3組 窓から三列目）',
@@ -103,21 +103,20 @@ const NK_DATA = {
       postText: '練り消しを「{r}」まで育てた（{m}）。#練り消し地球になる #ひまつぶし横丁',
     },
     en: {
-      title: 'The Kneaded Eraser Becomes Earth', sub: 'Grow it secretly in class',
+      title: 'The Kneaded Eraser Becomes Earth', sub: 'Grow it in class. How big can it get?',
       start: 'Start class', how: 'How to play', lang: '日本語',
       loading: 'Collecting crumbs',
       howH: 'How to play',
       howBody: [
-        'Tap the left and right sides <b>in turn</b>. The eraser rubs your notebook and the crumbs knead into a putty ball. A faster rhythm grows it faster',
-        'Tapping the same side twice is a miss. Three in a row <b>rips</b> the page and the teacher turns around',
-        'Rub while the teacher is facing you and you get caught. Three times and it is confiscated',
+        '<b>Swipe left and right</b> and the eraser follows your finger. Tapping left and right in turn works too. Faster grows it faster',
+        'Rub while the teacher is facing you and you get caught. Tap the same side three times and the page <b>rips</b>. <b>Two of either</b> and it is confiscated',
         'Rub right before they turn (head moving, chalk gone quiet) for a <b>close call</b> x2. The bigger it gets, the bigger the watcher',
       ],
       howClose: 'Close',
       credits: 'Sounds: soundsnap / Work With Sounds (La Fonderie, CC BY 4.0) / Thirunavukkarasye-Raveendran (CC BY 3.0) / Andreas Richter (CC BY 3.0) / Kenney / rubberduck / Luckius / AntumDeluge / artisticdude / Almitory / Of Far Different Nature / others (CC0, Public domain). The school and people are fictional.',
       privacy: 'Privacy',
       kiritsu: ['Stand', 'Bow', 'Sit'],
-      tutTap: 'Left, right, left, right', tutWatch: 'Turning! Stop rubbing',
+      tutTap: 'Swipe left and right', tutWatch: 'Turning! Stop rubbing',
       thrill: 'Close call', miss: 'Miss', tear: 'Rip', caught: 'Caught',
       board: 'Conservation of Mass',
       sizeSuffix: '',
@@ -151,7 +150,9 @@ const NK_DATA = {
       backGift: 'Use these too',
       chalkHit: 'Ow',
       endLine: "That's all for today",
-      confisc: 'Confiscated', confiscLine: 'Go stand in the hall',
+      confisc: 'Confiscated', confiscLine: 'I will take that',
+      nextPeriod: 'Period {n}', loopMass: '{n} universe(s) + {m}', loopTitle: 'Made {n} Universes', loopSize: 'bigger than a universe',
+      best: 'Best: {m}', certBest: 'Best', certNew: 'New record',
       bigbang: 'Big Bang',
       cert: 'Certificate of Appraisal', certItem: 'Item', certItemV: 'Kneaded eraser (Class 2-3, third row)',
       certMass: 'Weight', certSize: 'Size', certAte: 'Swallowed', certNone: 'nothing', certMore: '+{n} more',

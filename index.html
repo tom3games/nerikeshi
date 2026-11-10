@@ -48,6 +48,7 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 #tH .en{font-size:min(10vw,44px,5.6svh)}
 #tBallBox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
 #tBall{height:100%;max-height:min(84vw,380px);aspect-ratio:1;width:auto}
+#tBest{font-size:15px;font-weight:600;color:var(--red);transform:rotate(-1deg);min-height:20px;margin-bottom:2px}
 #tSub{font-size:16px;font-weight:600;color:var(--pencil);margin:0 0 12px;transform:rotate(-1deg)}
 /* 一番押してほしいボタン = 消しゴム */
 #bStart{position:relative;align-self:center;width:min(76vw,300px);height:70px;margin-right:36px;background:#fbfbf8;border-radius:10px;border:2px solid #3b3a36;box-shadow:0 6px 0 #3b3a36,0 10px 18px rgba(0,0,0,.18);font-size:21px;font-weight:600;letter-spacing:.08em;display:flex;align-items:center;justify-content:flex-end;padding-right:22px;overflow:hidden}
@@ -63,11 +64,11 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 #vPlay{background:#ece6d6}
 #cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #hud{position:absolute;left:0;right:0;top:0;z-index:5;pointer-events:none;padding:calc(6px + env(safe-area-inset-top)) 8px 0;display:flex;justify-content:space-between;align-items:flex-start}
-#strip{position:relative;background:#fbf9f1;padding:5px 14px 6px 12px;transform:rotate(-1.4deg);box-shadow:0 2px 5px rgba(0,0,0,.18);clip-path:polygon(0 3%,8% 0,22% 4%,40% 0,61% 3%,80% 0,100% 4%,98% 100%,76% 96%,55% 100%,33% 97%,14% 100%,0 96%);min-width:150px;max-width:62vw}
+#strip{position:relative;background:#fbf9f1;padding:5px 14px 7px 12px;transform:rotate(-1.4deg);box-shadow:0 2px 5px rgba(0,0,0,.18);clip-path:polygon(0 3%,8% 0,22% 4%,40% 0,61% 3%,80% 0,100% 4%,98% 100%,76% 96%,55% 100%,33% 97%,14% 100%,0 96%);min-width:150px;max-width:62vw}
 #hW{font-size:22px;font-weight:600;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
-#hS{font-size:13px;color:var(--pencil);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#hX{position:absolute;right:6px;top:4px;display:flex;gap:3px}
-#hX i{display:block;width:3px;height:16px;background:var(--red);border-radius:2px;transform:rotate(8deg);opacity:.9}
+#hX{display:flex;gap:6px;margin-top:3px}
+#hX i{display:block;width:13px;height:13px;border:2px solid var(--red);border-radius:50%;opacity:.75}
+#hX i.on{background:var(--red);opacity:1}
 #hR{display:flex;gap:6px;align-items:center;pointer-events:auto}
 #hClock{width:44px;height:44px}
 #bMute2{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:22px;background:rgba(251,249,241,.75)}
@@ -77,7 +78,7 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 #pop{position:absolute;z-index:5;left:50%;top:53%;transform:translate(-50%,-50%) rotate(-4deg);font-size:30px;font-weight:600;color:var(--red);white-space:nowrap;pointer-events:none;opacity:0;-webkit-text-stroke:5px #fffdf6;paint-order:stroke fill}
 #pop.tut{background:#fbf9f1;padding:4px 14px;box-shadow:0 2px 6px rgba(0,0,0,.2);-webkit-text-stroke:0}
 #pop.on{animation:pop .9s ease-out forwards}
-#pop.big{font-size:min(11vw,48px)}
+#pop.big{font-size:min(8.4vw,44px)}
 #pop.ink{color:var(--ink)}
 @keyframes pop{0%{opacity:0;transform:translate(-50%,-30%) rotate(-4deg) scale(.7)}12%{opacity:1;transform:translate(-50%,-50%) rotate(-4deg) scale(1.08)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%) rotate(-4deg)}}
 
@@ -133,6 +134,7 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
     <p id="tDate"></p>
     <h1 id="tH"></h1>
     <div id="tBallBox"><canvas id="tBall" width="560" height="560" aria-hidden="true"></canvas></div>
+    <p id="tBest"></p>
     <p id="tSub"></p>
     <button id="bStart"><span id="bStartT"></span></button>
     <div class="tLinks"><button id="bHow"></button><button id="bLang"></button><button id="bMute" aria-label="sound"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5" style="display:none"/></svg></button></div>
@@ -143,9 +145,8 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
   <div class="wrap">
   <canvas id="cv"></canvas>
   <div id="hud">
-    <div id="strip"><div id="hW"></div><div id="hS"></div><div id="hX"></div></div>
-    <div id="hR"><svg id="hClock" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="18" fill="#fbf9f1" stroke="#3b3a36" stroke-width="2"/><g stroke="#3b3a36" stroke-width="1.6" stroke-linecap="round"><path d="M22 6.5v3M22 34.5v3M6.5 22h3M34.5 22h3"/></g><path id="hHand" d="M22 22V9" stroke="#bf3a2c" stroke-width="2.4" stroke-linecap="round"/><path id="hHour" d="M22 22l6 4" stroke="#3b3a36" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="22" r="2" fill="#3b3a36"/></svg>
-      <button id="bMute2" aria-label="sound"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5" style="display:none"/></svg></button></div>
+    <div id="strip"><div id="hW"></div><div id="hX"></div></div>
+    <div id="hR"><button id="bMute2" aria-label="sound"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5" style="display:none"/></svg></button></div>
   </div>
   <div id="bub"></div>
   <div id="pop"></div>
@@ -200,8 +201,8 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 </script>
 <script src="tm.js?v=1" data-game="nerikeshi"></script>
 <script src="sfx.js?v=1"></script>
-<script src="data.js?v=1"></script>
-<script src="game.js?v=1"></script>
+<script src="data.js?v=2"></script>
+<script src="game.js?v=2"></script>
 <script src="support.js?v=1" data-ja="消しゴム" data-en="a new eraser"></script>
 </body>
 </html>
