@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<script id="ghMove">if(location.hostname==='tom3games.github.io'){location.replace('https://tom3games.com/play/nerikeshi/'+location.search+location.hash)}</script>
+<link rel="canonical" href="https://tom3games.com/play/nerikeshi/">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>練り消し、地球になる｜授業中に練り消しを育てるバカゲー</title>
+<meta name="description" content="授業中、画面の左と右を交互にトントンして消しゴムをこする。消しカスは練り消しになり、筆箱も机も先生も学校も飲みこんで地球になる。先生が振り向いたら手を止める。最後に練り消し鑑定書。">
+<meta property="og:type" content="website">
+<meta property="og:title" content="練り消し、地球になる">
+<meta property="og:description" content="左右交互にトントンして消しゴムをこする。練り消しは筆箱も先生も学校も飲みこんで、地球になる。先生が振り向いたら手を止めろ。">
+<meta property="og:image" content="https://tom3games.com/play/nerikeshi/og.png?v=1">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://tom3games.com/play/nerikeshi/">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#f5f1e6">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<style>
+[hidden]{display:none!important}
+:root{--paper:#f6f2e6;--rule:#c4d5e4;--margin:#e2a0a0;--ink:#34332f;--pencil:#56554f;--red:#bf3a2c;--gray:#8d8c87;--wood:#d3b083;
+  --hand:"Klee One","Hiragino Maru Gothic ProN","Hiragino Sans","Yu Gothic",sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+html{touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%;background:var(--paper)}
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;font-family:var(--hand);color:var(--ink);overflow:hidden;height:100svh;background:var(--paper)}
+button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.view{position:fixed;inset:0;height:100svh;overflow:hidden;z-index:2}
+.wrap{position:relative;height:100%;max-width:480px;margin:0 auto}
+/* ノートの紙 */
+.page{background-color:var(--paper);background-image:linear-gradient(90deg,transparent 0,transparent 38px,var(--margin) 38px,var(--margin) 39.5px,transparent 39.5px),repeating-linear-gradient(180deg,transparent 0,transparent 31px,var(--rule) 31px,var(--rule) 32px);background-position:0 0,0 18px}
+#loading{position:fixed;inset:0;z-index:90;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .35s}
+#loading .er{position:relative;width:120px;height:60px}
+#loading .er svg{position:absolute;left:30px;top:6px;width:62px;height:34px;animation:rubL .42s ease-in-out infinite alternate}
+@keyframes rubL{from{transform:translateX(-26px) rotate(-3deg)}to{transform:translateX(26px) rotate(3deg)}}
+#loading .er i{position:absolute;bottom:2px;width:5px;height:4px;border-radius:50%;background:#8c8b85;animation:crumb 1.3s linear infinite}
+@keyframes crumb{0%{opacity:0;transform:translate(0,-8px)}20%{opacity:1}100%{opacity:0;transform:translate(var(--dx),6px)}}
+#loading p{font-size:16px;font-weight:600;color:var(--pencil);letter-spacing:.06em}
+#loadBar{width:150px;height:4px;background:rgba(52,51,47,.12)}
+#loadBar i{display:block;height:100%;width:0;background:var(--pencil);transition:width .2s}
+
+/* タイトル */
+#vTitle .wrap{display:flex;flex-direction:column;padding:calc(18px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 52px}
+#tDate{font-size:14px;color:var(--pencil);transform:rotate(-1deg);align-self:flex-start;min-height:20px}
+#tH{margin-top:2.4svh;font-weight:600;font-size:min(13.4vw,62px,7.6svh);line-height:1.12;letter-spacing:.02em;transform:rotate(-2deg);transform-origin:0 50%}
+#tH span{display:block}
+#tH .en{font-size:min(10vw,44px,5.6svh)}
+#tBallBox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;position:relative}
+#tBall{height:100%;max-height:min(84vw,380px);aspect-ratio:1;width:auto}
+#tSub{font-size:16px;font-weight:600;color:var(--pencil);margin:0 0 12px;transform:rotate(-1deg)}
+/* 一番押してほしいボタン = 消しゴム */
+#bStart{position:relative;align-self:center;width:min(76vw,300px);height:70px;margin-right:36px;background:#fbfbf8;border-radius:10px;border:2px solid #3b3a36;box-shadow:0 6px 0 #3b3a36,0 10px 18px rgba(0,0,0,.18);font-size:21px;font-weight:600;letter-spacing:.08em;display:flex;align-items:center;justify-content:flex-end;padding-right:22px;overflow:hidden}
+#bStart::before{content:"";position:absolute;left:0;top:0;bottom:0;width:58%;background:#d9c69c;border-right:2px solid #3b3a36;background-image:repeating-linear-gradient(115deg,transparent 0 9px,rgba(80,60,30,.12) 9px 10px)}
+#bStart span{position:relative;z-index:1}
+#bStart span.l{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:13px;letter-spacing:.2em;color:#5b4a2b}
+#bStart:active{transform:translateY(4px);box-shadow:0 2px 0 #3b3a36}
+.tLinks{display:flex;gap:18px;justify-content:center;margin-top:14px;align-items:center}
+.tLinks button{min-height:44px;padding:0 8px;font-size:16px;font-weight:600;color:var(--pencil);text-decoration:underline wavy rgba(86,85,79,.45) 1px;text-underline-offset:6px}
+#bMute svg,#bMute2 svg{width:22px;height:22px;fill:none;stroke:var(--pencil);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* 遊ぶ */
+#vPlay{background:#ece6d6}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+#hud{position:absolute;left:0;right:0;top:0;z-index:5;pointer-events:none;padding:calc(6px + env(safe-area-inset-top)) 8px 0;display:flex;justify-content:space-between;align-items:flex-start}
+#strip{position:relative;background:#fbf9f1;padding:5px 14px 6px 12px;transform:rotate(-1.4deg);box-shadow:0 2px 5px rgba(0,0,0,.18);clip-path:polygon(0 3%,8% 0,22% 4%,40% 0,61% 3%,80% 0,100% 4%,98% 100%,76% 96%,55% 100%,33% 97%,14% 100%,0 96%);min-width:150px;max-width:62vw}
+#hW{font-size:22px;font-weight:600;line-height:1.1;white-space:nowrap;font-variant-numeric:tabular-nums}
+#hS{font-size:13px;color:var(--pencil);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hX{position:absolute;right:6px;top:4px;display:flex;gap:3px}
+#hX i{display:block;width:3px;height:16px;background:var(--red);border-radius:2px;transform:rotate(8deg);opacity:.9}
+#hR{display:flex;gap:6px;align-items:center;pointer-events:auto}
+#hClock{width:44px;height:44px}
+#bMute2{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:22px;background:rgba(251,249,241,.75)}
+#bub{position:absolute;z-index:8;box-shadow:0 2px 6px rgba(0,0,0,.18);max-width:72%;background:#fffdf6;border:2px solid #34332f;border-radius:16px 16px 16px 4px;padding:4px 12px 5px;font-size:16px;font-weight:600;line-height:1.3;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s}
+#bub.on{opacity:1}
+#bub.r{border-radius:16px 16px 4px 16px}
+#pop{position:absolute;z-index:5;left:50%;top:53%;transform:translate(-50%,-50%) rotate(-4deg);font-size:30px;font-weight:600;color:var(--red);white-space:nowrap;pointer-events:none;opacity:0;-webkit-text-stroke:5px #fffdf6;paint-order:stroke fill}
+#pop.tut{background:#fbf9f1;padding:4px 14px;box-shadow:0 2px 6px rgba(0,0,0,.2);-webkit-text-stroke:0}
+#pop.on{animation:pop .9s ease-out forwards}
+#pop.big{font-size:min(11vw,48px)}
+#pop.ink{color:var(--ink)}
+@keyframes pop{0%{opacity:0;transform:translate(-50%,-30%) rotate(-4deg) scale(.7)}12%{opacity:1;transform:translate(-50%,-50%) rotate(-4deg) scale(1.08)}80%{opacity:1}100%{opacity:0;transform:translate(-50%,-62%) rotate(-4deg)}}
+
+/* 鑑定書 */
+#vEnd{background:#3d3b36}
+#vEnd .wrap{display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top)) 12px calc(8px + env(safe-area-inset-bottom))}
+#certBox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+#cert{position:relative;width:100%;max-width:420px;max-height:100%;aspect-ratio:3/4.1;background:#fbf7ea;border:3px double #7a5b2e;outline:8px solid #fbf7ea;outline-offset:0;box-shadow:0 10px 26px rgba(0,0,0,.45);padding:5% 6% 4%;display:flex;flex-direction:column;container-type:size;transform:rotate(-.6deg)}
+#cert.in{animation:certIn .5s ease-out}
+@keyframes certIn{from{transform:translateY(30px) rotate(-3deg);opacity:0}to{transform:rotate(-.6deg);opacity:1}}
+#cert h2{text-align:center;font-weight:600;font-size:7.4cqw;letter-spacing:.18em;color:#5a3f17;border-bottom:1.5px solid #b49b6c;padding-bottom:1.2cqh}
+#cert .item{text-align:center;font-size:3.4cqw;color:#7a6a4e;margin-top:.8cqh}
+#cert .rank{text-align:center;font-weight:600;font-size:8.6cqw;line-height:1.15;margin:1.4cqh 0 .4cqh}
+#cert .mid{display:flex;gap:4cqw;align-items:center;flex:1;min-height:0}
+#certBall{width:38cqw;height:38cqw;flex:none;margin-left:-3cqw}
+#cert dl{flex:1;display:grid;grid-template-columns:auto 1fr;gap:1.2cqh 2.4cqw;font-size:3.9cqw;line-height:1.3;align-content:center}
+#cert dt{color:#7a6a4e}
+#cert dd{font-weight:600;overflow-wrap:anywhere}
+#cert .ate{font-size:3.6cqw;line-height:1.35;border-top:1px dashed #b49b6c;padding-top:1.2cqh;margin-top:1cqh}
+#cert .ate b{color:#7a6a4e;font-weight:400;margin-right:2cqw}
+#cert .price{display:flex;justify-content:space-between;align-items:baseline;border-top:1.5px solid #b49b6c;margin-top:1.4cqh;padding-top:1.2cqh;font-size:4cqw}
+#cert .price b{font-size:6.4cqw;font-weight:600;color:var(--red);text-align:right}
+#cert .cmt{font-size:4.2cqw;margin-top:1cqh}
+#cert .by{font-size:3.3cqw;color:#7a6a4e;margin-top:.6cqh;text-align:right}
+#stamp{position:absolute;right:3%;top:1.5%;width:17cqw;height:17cqw;border:.9cqw solid rgba(191,58,44,.85);border-radius:50%;color:rgba(191,58,44,.9);font-weight:600;font-size:4.2cqw;display:flex;align-items:center;justify-content:center;transform:rotate(-14deg);text-align:center;line-height:1.05}
+#stamp.conf{border-radius:6px;font-size:5.4cqw;width:24cqw;height:11cqw}
+#stamp.hit{animation:stamp .35s ease-in}
+@keyframes stamp{0%{transform:rotate(-14deg) scale(2.4);opacity:0}70%{opacity:1}100%{transform:rotate(-14deg) scale(1)}}
+.endBtns{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:8px}
+.endBtns .row{display:flex;gap:8px;justify-content:center;width:100%}
+.endBtns button{min-height:46px;padding:0 14px;font-size:16px;font-weight:600;color:#f3efe2;border-bottom:1.5px solid rgba(243,239,226,.4)}
+#bAgain{background:#fbfbf8;color:var(--ink);border:2px solid #1f1e1b;border-radius:8px;box-shadow:0 4px 0 #1f1e1b;min-width:200px;font-size:18px}
+#bAgain:active{transform:translateY(3px);box-shadow:0 1px 0 #1f1e1b}
+#card{display:none}
+
+/* 遊び方 */
+.ovl{position:fixed;inset:0;z-index:80;background:rgba(40,38,33,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+.ovl .in{position:relative;width:min(100%,420px);max-height:calc(100svh - 32px);overflow:auto;padding:22px 18px 16px 52px;box-shadow:0 10px 28px rgba(0,0,0,.4);transform:rotate(-.5deg)}
+.ovl h3{font-size:22px;font-weight:600;margin-bottom:8px}
+.ovl ol{padding-left:1.1em;display:flex;flex-direction:column;gap:10px;font-size:15.5px;line-height:1.55}
+.ovl ol b{color:var(--red);font-weight:600}
+.ovl small{display:block;margin-top:12px;font-size:11px;line-height:1.5;color:var(--pencil)}
+.ovl small a{color:var(--pencil)}
+.ovl .close{display:block;margin:12px auto 0;min-height:44px;padding:0 22px;font-size:16px;font-weight:600;border:2px solid var(--ink);border-radius:8px;background:#fbfbf8}
+@media (max-height:700px){#tH{margin-top:1svh}#bStart{height:60px}.tLinks{margin-top:6px}#hW{font-size:19px}.ovl ol{font-size:14px;gap:6px}}
+</style>
+</head>
+<body>
+<div id="loading" class="page"><div class="er"><svg viewBox="0 0 62 34" aria-hidden="true"><rect x="2" y="3" width="58" height="28" rx="5" fill="#fbfbf8" stroke="#3b3a36" stroke-width="2"/><path d="M26 3h34v28H26z" fill="#d9c69c" stroke="#3b3a36" stroke-width="2"/></svg><i style="left:40px;--dx:-14px"></i><i style="left:58px;--dx:8px;animation-delay:.4s"></i><i style="left:74px;--dx:16px;animation-delay:.8s"></i></div><p id="loadTxt">消しカスを集めています</p><div id="loadBar"><i></i></div></div>
+
+<main id="vTitle" class="view page">
+  <div class="wrap">
+    <p id="tDate"></p>
+    <h1 id="tH"></h1>
+    <div id="tBallBox"><canvas id="tBall" width="560" height="560" aria-hidden="true"></canvas></div>
+    <p id="tSub"></p>
+    <button id="bStart"><span id="bStartT"></span></button>
+    <div class="tLinks"><button id="bHow"></button><button id="bLang"></button><button id="bMute" aria-label="sound"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5" style="display:none"/></svg></button></div>
+  </div>
+</main>
+
+<main id="vPlay" class="view" hidden>
+  <div class="wrap">
+  <canvas id="cv"></canvas>
+  <div id="hud">
+    <div id="strip"><div id="hW"></div><div id="hS"></div><div id="hX"></div></div>
+    <div id="hR"><svg id="hClock" viewBox="0 0 44 44" aria-hidden="true"><circle cx="22" cy="22" r="18" fill="#fbf9f1" stroke="#3b3a36" stroke-width="2"/><g stroke="#3b3a36" stroke-width="1.6" stroke-linecap="round"><path d="M22 6.5v3M22 34.5v3M6.5 22h3M34.5 22h3"/></g><path id="hHand" d="M22 22V9" stroke="#bf3a2c" stroke-width="2.4" stroke-linecap="round"/><path id="hHour" d="M22 22l6 4" stroke="#3b3a36" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="22" r="2" fill="#3b3a36"/></svg>
+      <button id="bMute2" aria-label="sound"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path class="wave" d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/><path class="x" d="M16 9.5l5 5M21 9.5l-5 5" style="display:none"/></svg></button></div>
+  </div>
+  <div id="bub"></div>
+  <div id="pop"></div>
+  </div>
+</main>
+
+<main id="vEnd" class="view" hidden>
+  <div class="wrap">
+    <div id="certBox"><div id="cert">
+      <h2 id="cH"></h2><p class="item" id="cItem"></p>
+      <div class="rank" id="cRank"></div>
+      <div class="mid"><canvas id="certBall" width="300" height="300" aria-hidden="true"></canvas><dl id="cDl"></dl></div>
+      <div class="ate" id="cAte"></div>
+      <div class="price"><span id="cPriceL"></span><b id="cPrice"></b></div>
+      <div class="cmt" id="cCmt"></div>
+      <div class="by" id="cBy"></div>
+      <div id="stamp"></div>
+    </div></div>
+    <div class="endBtns">
+      <div class="row"><button id="bSave"></button><button id="bPost"></button></div>
+      <div class="row"><button id="bAgain"></button></div>
+    </div>
+  </div>
+  <canvas id="card" width="1080" height="1440"></canvas>
+</main>
+
+<div class="ovl" id="how" hidden><div class="in page"><h3 id="howH"></h3><ol id="howBody"></ol><small id="howCred"></small><button class="close" id="howClose"></button></div></div>
+
+<script>
+(function(){
+  var opt={passive:false};
+  ['gesturestart','gesturechange','gestureend'].forEach(function(n){document.addEventListener(n,function(e){e.preventDefault()},opt)});
+  document.addEventListener('touchmove',function(e){if(e.touches&&e.touches.length>1)e.preventDefault()},opt);
+  var last=0;document.addEventListener('touchend',function(e){var n=Date.now();if(n-last<300&&!(e.target.closest&&e.target.closest('button,a')))e.preventDefault();last=n},opt);
+  document.addEventListener('dblclick',function(e){e.preventDefault()},opt);
+  window.addEventListener('wheel',function(e){if(e.ctrlKey)e.preventDefault()},opt);
+  window.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&['+','-','=','0',';'].indexOf(e.key)>=0)e.preventDefault()});
+})();
+(function(){
+  var errs=[];
+  window.addEventListener('error',function(e){errs.push((e.message||'error')+' @'+(e.filename||'')+':'+(e.lineno||''))});
+  window.addEventListener('unhandledrejection',function(e){errs.push('reject: '+(e.reason&&e.reason.message||e.reason))});
+  // 読み込み中を失敗と出さない: JS が動いたか（__jsUp）で見る
+  setTimeout(function(){
+    if(window.__jsUp) return;
+    var l=document.getElementById('loading');if(l)l.style.display='none';
+    var d=document.createElement('div');d.style.cssText='position:fixed;inset:auto 8px 8px 8px;z-index:199;background:#fff;color:#b00;font:12px/1.4 monospace;white-space:pre-wrap;padding:10px';
+    d.textContent='起動できませんでした / failed to start\n'+(errs.join('\n')||'(no error captured)')+'\n'+navigator.userAgent;
+    document.body.appendChild(d);
+  },15000);
+})();
+</script>
+<script src="tm.js?v=1" data-game="nerikeshi"></script>
+<script src="sfx.js?v=1"></script>
+<script src="data.js?v=1"></script>
+<script src="game.js?v=1"></script>
+<script src="support.js?v=1" data-ja="消しゴム" data-en="a new eraser"></script>
+</body>
+</html>

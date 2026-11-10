@@ -1,0 +1,275 @@
+import './mute-auto.mjs'
+import { MUTE_LAUNCH, muteContext } from './mute.mjs'
+// 練り消し、地球になる の検証。node verify.mjs
+import { chromium, webkit } from 'playwright'
+import { spawn } from 'node:child_process'
+import { mkdirSync } from 'node:fs'
+const ROOT = import.meta.dirname
+mkdirSync(ROOT + '/shots', { recursive: true })
+const PORT = 6471
+const server = spawn(process.execPath, ['server.mjs'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT) } })
+await new Promise(r => setTimeout(r, 400))
+const URL0 = `http://localhost:${PORT}/`
+let pass = 0, fail = 0
+const results = []
+async function t(name, fn) {
+  try { const r = await fn(); if (r === false) throw new Error('false'); pass++; results.push(`ok   ${name}${r && r !== true ? '  ' + JSON.stringify(r) : ''}`) }
+  catch (e) { fail++; results.push(`FAIL ${name}  ${e.message.split('\n')[0]}`) }
+}
+const expect = (c, msg) => { if (!c) throw new Error(msg) }
+async function open(browser, opts = {}) {
+  const ctx = await browser.newContext({ locale: 'ja-JP', viewport: { width: 390, height: 844 }, ...opts })
+  await muteContext(ctx)
+  await ctx.addInitScript(() => { try { localStorage.clear() } catch (e) {} })
+  const p = await ctx.newPage(); p.errs = []
+  p.on('pageerror', e => p.errs.push('pageerror ' + e.message))
+  p.on('console', m => { if (m.type() === 'error') p.errs.push('console ' + m.text()) })
+  p.on('requestfailed', r => { if (!/fonts\.(googleapis|gstatic)|googletagmanager/.test(r.url())) p.errs.push('reqfail ' + r.url()) })
+  await p.goto(URL0); await p.waitForFunction(() => window.__nkReady, null, { timeout: 15000 })
+  return p
+}
+const overflow = p => p.evaluate(() => {
+  const W = document.documentElement.clientWidth, bad = []
+  for (const el of document.querySelectorAll('main:not([hidden]) *, .ovl:not([hidden]) *')) {
+    if (el.closest('[hidden]') || (el.checkVisibility && !el.checkVisibility({ visibilityProperty: true }))) continue
+    if (el.id === 'card') continue
+    const r = el.getBoundingClientRect(); if (r.width && (r.right > W + 1 || r.left < -1)) bad.push((el.id || el.className || el.tagName) + ':' + Math.round(r.left) + '-' + Math.round(r.right))
+  }
+  return { sw: document.documentElement.scrollWidth, W, bad: bad.slice(0, 5) }
+})
+const fit = q => q.evaluate(() => {
+  const H = innerHeight, de = document.documentElement, over = []
+  if (de.scrollHeight > H + 1) over.push('page:' + de.scrollHeight)
+  for (const el of document.querySelectorAll('main:not([hidden]) button,main:not([hidden]) a,.ovl:not([hidden]) button')) { if (!el.offsetParent) continue; const r = el.getBoundingClientRect(); if (r.bottom > H + 1 || r.top < -1) over.push((el.id || el.className) + ':' + Math.round(r.top) + '-' + Math.round(r.bottom)) }
+  const ovl = document.querySelector('.ovl:not([hidden]) .in'); if (ovl && ovl.scrollHeight > ovl.clientHeight + 1) over.push('howScroll:' + ovl.scrollHeight + '/' + ovl.clientHeight)
+  return { H, over: over.slice(0, 6) }
+})
+const variance = (p, sel) => p.evaluate(sel => {
+  const c = document.querySelector(sel), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data
+  let s = 0, s2 = 0, n = 0; for (let i = 0; i < d.length; i += 4 * 13) { const v = d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11; s += v; s2 += v * v; n++ }
+  return Math.round(s2 / n - (s / n) ** 2)
+}, sel)
+// 始めて「着席」まで飛ばし、時間を止める（台本どおりに進めるため）
+const begin = (p, seed = 5) => p.evaluate(sd => { nk.dbg.seed(sd); nk.start(); nk.dbg.pause(); nk.dbg.skipKiritsu() }, seed)
+const SIZES = [[360, 640, 'small'], [390, 844, 'phone'], [430, 932, 'large']]
+
+const browser = await chromium.launch(MUTE_LAUNCH)
+const p = await open(browser)
+await t('起動時にエラーが出ない・読み込み画面が消える', async () => { await p.waitForTimeout(500); const l = await p.evaluate(() => getComputedStyle(document.getElementById('loading')).display); expect(p.errs.length === 0 && l === 'none', p.errs.join('|') + ' loading=' + l) })
+await t('ブラウザの拡大が起きない（viewport・ピンチ・Ctrl+ホイール・Ctrl+プラス）', async () => {
+  const r = await p.evaluate(() => {
+    const vp = document.querySelector('meta[name=viewport]').content
+    const g = new Event('gesturestart', { cancelable: true }); document.dispatchEvent(g)
+    const w = new WheelEvent('wheel', { ctrlKey: true, deltaY: -10, bubbles: true, cancelable: true }); window.dispatchEvent(w)
+    const k = new KeyboardEvent('keydown', { key: '+', ctrlKey: true, bubbles: true, cancelable: true }); window.dispatchEvent(k)
+    return { vp, gesture: g.defaultPrevented, wheel: w.defaultPrevented, key: k.defaultPrevented, ta: getComputedStyle(document.documentElement).touchAction, us: getComputedStyle(document.body).userSelect, cvta: getComputedStyle(document.getElementById('cv')).touchAction }
+  })
+  expect(/user-scalable=no/.test(r.vp) && r.gesture && r.wheel && r.key && r.ta === 'manipulation' && r.us === 'none' && r.cvta === 'none', JSON.stringify(r)); return r
+})
+await t('OGP 一式と canonical・転送 script がある', async () => {
+  const r = await p.evaluate(() => ['og:title', 'og:description', 'og:image', 'og:url', 'og:type'].map(k => !!document.querySelector(`meta[property="${k}"]`)).concat(!!document.querySelector('meta[name="twitter:card"]'), !!document.querySelector('link[rel=canonical]'), !!document.getElementById('ghMove')))
+  expect(r.every(Boolean), JSON.stringify(r))
+})
+await t('タイトルの絵が描けている（輝度の散らばり）', async () => { const v = await variance(p, '#tBall'); expect(v > 200, v); return v })
+
+// ---- 本物の指で遊ぶ: 始める→起立礼着席→左右交互に押す ----
+await t('本物のクリックで始めて、左右交互に押すと練り消しが育つ', async () => {
+  await p.click('#bStart')
+  await p.waitForFunction(() => nk.G.phase === 'play', null, { timeout: 5000 })
+  await p.evaluate(() => { nk.G.noWatch = true })
+  const L = await p.evaluate(() => nk.sideXY(0)), R = await p.evaluate(() => nk.sideXY(1))
+  for (let i = 0; i < 16; i++) { const s = i % 2 ? R : L; await p.mouse.click(s.x, s.y); await p.waitForTimeout(120) }
+  const st = await p.evaluate(() => nk.state())
+  expect(st.strokes >= 15 && st.P > 3, JSON.stringify(st)); return { strokes: st.strokes, P: st.P }
+})
+await t('音を鳴らす操作の後でも実際には無音（Chromium）', async () => { const r = await p.evaluate(() => ({ ok: window.__muteOk(), calls: window.__soundCalls })); expect(r.ok && r.calls > 0, JSON.stringify(r)); return r })
+await t('左右の入力の外（右上のボタン）を押しても こすらない', async () => {
+  const before = await p.evaluate(() => nk.G.strokes); await p.click('#bMute2'); await p.click('#bMute2'); const after = await p.evaluate(() => nk.G.strokes)
+  expect(before === after, before + '->' + after)
+})
+await t('キーボードの左右でもこすれる', async () => {
+  const before = await p.evaluate(() => nk.G.strokes)
+  const last = await p.evaluate(() => nk.G.lastSide)
+  await p.keyboard.press(last === 0 ? 'ArrowRight' : 'ArrowLeft'); await p.keyboard.press(last === 0 ? 'ArrowLeft' : 'ArrowRight')
+  const after = await p.evaluate(() => nk.G.strokes); expect(after === before + 2, before + '->' + after)
+})
+
+// ---- 台本で: 空振り・破れる・見つかる・フェイント・ギリギリ ----
+await t('同じ側を続けると空振り、3回目でノートが破れて先生が振り向く', async () => {
+  await begin(p, 11)
+  const r = await p.evaluate(() => {
+    nk.tap(0); nk.dbg.tick(10); const P1 = nk.G.P
+    const a = nk.tap(0); nk.dbg.tick(10); const P2 = nk.G.P
+    const b = nk.tap(0); nk.dbg.tick(2)
+    return { a, b, P1, P2, tears: nk.G.tears, w: nk.G.w.st }
+  })
+  expect(r.a === 'miss' && r.b === 'tear' && r.P1 === r.P2 && r.tears === 1 && r.w === 'tell', JSON.stringify(r)); return r
+})
+await t('振り向く直前（首が動いた間）にこすると2倍（ギリギリ）', async () => {
+  await begin(p, 12)
+  const r = await p.evaluate(() => {
+    const G = nk.G; G.noWatch = true
+    nk.tap(0); nk.dbg.tick(12); nk.tap(1); nk.dbg.tick(12)
+    const a0 = G.P; nk.tap(0); const a = G.P - a0; nk.dbg.tick(12)
+    G.w.st = 'tell'; G.w.t = 0; G.w.dur = 5; G.w.fake = false
+    const b0 = G.P; nk.tap(1); const b = G.P - b0
+    return { a: +a.toFixed(4), b: +b.toFixed(4), ratio: +(b / a).toFixed(2), thrills: G.thrills }
+  })
+  expect(r.ratio > 1.9 && r.ratio < 2.1 && r.thrills === 1, JSON.stringify(r)); return r
+})
+await t('先生がこっちを向いている間にこすると見つかる（注意+1・重さが減る・1.4秒こすれない）', async () => {
+  await begin(p, 13)
+  const r = await p.evaluate(() => {
+    const G = nk.G; G.noWatch = true
+    for (let i = 0; i < 30; i++) { nk.tap(i % 2); nk.dbg.tick(10) }
+    const P0 = G.P; G.w.st = 'look'; G.w.t = 0.3; G.w.dur = 5
+    const res = nk.tap(G.lastSide ? 0 : 1); const P1 = G.P
+    nk.dbg.tick(30); const locked = nk.tap(G.lastSide ? 0 : 1)
+    return { res, strikes: G.strikes, drop: +(P0 - P1).toFixed(2), floor: G.stage * 10, P1: +P1.toFixed(2), locked, ev: G.ev.filter(e => e[1] === 'caught').length }
+  })
+  expect(r.res === 'caught' && r.strikes === 1 && r.drop > 0 && r.P1 >= r.floor && r.locked === false && r.ev === 1, JSON.stringify(r)); return r
+})
+await t('フェイント（チョーク折れた）の間は押しても見つからない', async () => {
+  await begin(p, 14)
+  const r = await p.evaluate(() => {
+    const G = nk.G; G.noWatch = true; G.turns = 3
+    G.w.st = 'tell'; G.w.t = 0; G.w.dur = 0.3; G.w.fake = true
+    nk.dbg.tick(30)
+    const st = G.w.st, res = nk.tap(0)
+    return { st, res, strikes: G.strikes, bub: G.bub && G.bub.text }
+  })
+  expect(r.st === 'fake' && r.res === 'ok' && r.strikes === 0 && r.bub, JSON.stringify(r)); return r
+})
+await t('注意3回で没収→鑑定書に「没収」', async () => {
+  await begin(p, 15)
+  await p.evaluate(() => { const G = nk.G; G.noWatch = true; for (let i = 0; i < 20; i++) { nk.tap(i % 2); nk.dbg.tick(8) } for (let k = 0; k < 3; k++) { G.lock = 0; G.w.st = 'look'; G.w.t = 0.3; G.w.dur = 5; nk.tap(G.lastSide ? 0 : 1); nk.dbg.tick(20) } nk.dbg.tick(400) })
+  await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 })
+  const r = await p.evaluate(() => ({ conf: nk.result().conf, reason: nk.result().reason, stamp: document.getElementById('stamp').textContent, end: !document.getElementById('vEnd').hidden, cmt: document.getElementById('cCmt').textContent }))
+  expect(r.conf && r.reason === 'confisc' && r.stamp === '没収' && r.end && /職員室/.test(r.cmt), JSON.stringify(r)); return r
+})
+await t('何もしない通しは一番下の判定（ただの消しカス）', async () => {
+  await begin(p, 16)
+  await p.evaluate(() => nk.dbg.tick(60 * 80))
+  await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 })
+  const r = await p.evaluate(() => ({ rank: nk.result().rank, title: nk.result().title, P: nk.result().P }))
+  expect(r.rank === 0, JSON.stringify(r)); return r
+})
+await t('時間切れで鑑定書が出る（重さ・大きさ・取りこんだ物・鑑定額が埋まる）', async () => {
+  await begin(p, 17)
+  await p.evaluate(() => { nk.G.noWatch = true; for (let i = 0; i < 120; i++) { nk.tap(i % 2); nk.dbg.tick(10) } nk.dbg.tick(60 * 80) })
+  await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 })
+  await p.waitForTimeout(700)
+  const r = await p.evaluate(() => ({ rank: document.getElementById('cRank').textContent, dl: document.getElementById('cDl').textContent, ate: document.getElementById('cAte').textContent, price: document.getElementById('cPrice').textContent, r: nk.result() }))
+  await p.screenshot({ path: ROOT + '/shots/v-end.png' })
+  expect(r.rank && /g|トン|kg/.test(r.dl) && r.ate.length > 6 && r.price && r.r.reason === 'time', JSON.stringify(r).slice(0, 300)); return { rank: r.rank, P: r.r.P }
+})
+await t('鑑定書の練り消しが描けている', async () => { const v = await variance(p, '#certBall'); expect(v > 100, v); return v })
+await t('画像で保存: 1080x1440 の画像が描けてダウンロードされる', async () => {
+  const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 8000 }), p.click('#bSave')])
+  const v = await variance(p, '#card'); expect(dl.suggestedFilename() === 'nerikeshi.png' && v > 300, dl.suggestedFilename() + ' ' + v); return v
+})
+await t('Xでポスト: 結果と公開URLが入る', async () => {
+  const u = await p.evaluate(() => { let got = ''; const o = window.open; window.open = x => { got = x; return null }; document.getElementById('bPost').click(); window.open = o; return got })
+  expect(/x\.com\/intent\/post/.test(u) && decodeURIComponent(u).includes('https://tom3games.com/play/nerikeshi/') && decodeURIComponent(u).includes(await p.evaluate(() => nk.result().title)), u)
+})
+await t('支援と横丁へ戻るが結果画面にある', async () => { const r = await p.evaluate(() => [!!document.getElementById('tmSupport'), !!document.getElementById('tmHome')]); expect(r.every(Boolean), r) })
+await t('もう一回で最初から（重さ0・注意0）', async () => {
+  await p.click('#bAgain'); await p.waitForTimeout(100)
+  const r = await p.evaluate(() => ({ P: nk.G.P, strikes: nk.G.strikes, ate: nk.G.ate.length, phase: nk.G.phase, play: !document.getElementById('vPlay').hidden }))
+  expect(r.P === 0 && r.strikes === 0 && r.ate === 0 && r.play, JSON.stringify(r)); return r
+})
+await t('全段階を通る: 机→教室→学校→町→日本→地球→宇宙、物を順に取りこむ・描けている', async () => {
+  await begin(p, 18)
+  const seen = []
+  for (const P of [5, 15, 25, 36, 45, 55, 65, 75, 85, 95, 105]) {
+    const r = await p.evaluate(P => { nk.G.noWatch = true; nk.dbg.setP(P); nk.dbg.step(120); return { sc: nk.G.sceneNow, ate: nk.G.ate.length, fly: nk.G.fly.length } }, P)
+    const v = await variance(p, '#cv'); seen.push(r.sc + ':' + r.ate + ':' + v)
+    if (v < 200) throw new Error('flat ' + P + ' ' + v)
+  }
+  const order = await p.evaluate(() => nk.G.ate.join(','))
+  const expectOrder = (await p.evaluate(() => nk.D.ITEMS.filter(i => i.p <= nk.G.P).map(i => i.id).join(',')))
+  expect(order === expectOrder && p.errs.length === 0, order + ' / ' + expectOrder + ' ' + p.errs.join('|')); return seen
+})
+await t('育ちすぎるとビッグバンで先に授業が終わる（宇宙をひとつ作った）', async () => {
+  await p.evaluate(() => { nk.dbg.setP(116); nk.dbg.tick(300) })
+  await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 })
+  const r = await p.evaluate(() => ({ reason: nk.result().reason, rank: nk.result().rank, t: nk.G.t }))
+  expect(r.reason === 'bigbang' && r.rank === 10 && r.t < 75, JSON.stringify(r)); return r
+})
+await t('重さの表示が増え続ける（単位の切り替え）', async () => {
+  const r = await p.evaluate(() => { const out = []; let prev = 0, mono = true; for (let P = 0; P <= 115; P += 0.5) { const g = nk.massG(P); if (g < prev) mono = false; prev = g } for (const P of [0, 10, 30, 45, 60, 75, 90, 100, 115]) out.push(nk.fmtMass(nk.massG(P))); return { mono, out } })
+  expect(r.mono && /垓/.test(r.out[6]) && /g$/.test(r.out[0]), JSON.stringify(r)); return r.out.join(' ')
+})
+await t('遊び中に同時に出る文字は2つまで（吹き出し＋判定）', async () => {
+  await begin(p, 19)
+  let mx = 0
+  for (let i = 0; i < 40; i++) {
+    const n = await p.evaluate(i => { const G = nk.G; if (i === 10) { G.w.st = 'look'; G.w.t = 0.3; G.w.dur = 3 } nk.tap(i % 2); nk.dbg.step(20); return ['bub', 'pop'].filter(id => { const e = document.getElementById(id); return e.classList.contains('on') && e.textContent.trim() && getComputedStyle(e).opacity !== '0' }).length }, i)
+    mx = Math.max(mx, n)
+  }
+  expect(mx <= 2, mx); return mx
+})
+await t('吹き出しが画面の中に収まる', async () => {
+  const r = await p.evaluate(() => { const out = []; for (const who of ['teacher', 'tanaka', 'back', 'yamada', 'principal', 'heli', 'sat', 'ufo', 'cosmic', 'me']) { nk.G.bub = null; const e = document.getElementById('bub'); e.textContent = 'えー、黒板が無いので口で'; e.classList.add('on'); nk.G.bub = { who, text: 'x', until: nk.G.clk + 5 }; nk.dbg.step(1); const r = e.getBoundingClientRect(); if (r.left < 0 || r.right > innerWidth || r.top < 0 || r.bottom > innerHeight) out.push(who + ':' + Math.round(r.left) + ',' + Math.round(r.top) + ',' + Math.round(r.right)) } return out })
+  expect(!r.length, r.join(' '))
+})
+await t('英語に切り替わる（タイトル・遊び方・結果）', async () => {
+  const q = await open(browser)
+  await q.click('#bLang')
+  const a = await q.evaluate(() => ({ h: document.getElementById('tH').textContent, start: document.getElementById('bStartT').textContent, how: document.getElementById('howBody').textContent.slice(0, 40) }))
+  await begin(q, 20)
+  await q.evaluate(() => { nk.G.noWatch = true; for (let i = 0; i < 60; i++) { nk.tap(i % 2); nk.dbg.tick(10) } nk.dbg.tick(60 * 80) })
+  await q.waitForFunction(() => nk.G.phase === 'done')
+  const b = await q.evaluate(() => ({ rank: document.getElementById('cRank').textContent, h: document.getElementById('cH').textContent, mass: nk.result().mass, again: document.getElementById('bAgain').textContent, home: document.getElementById('tmHome').textContent }))
+  await q.screenshot({ path: ROOT + '/shots/v-end-en.png' })
+  const ja = /[ぁ-んァ-ヶ一-龠]/
+  expect(/Earth/.test(a.h) && a.start === 'Start class' && !ja.test(a.how) && !ja.test(b.rank + b.h + b.mass + b.again + b.home), JSON.stringify({ a, b }))
+  await q.context().close(); return b
+})
+await p.close()
+
+// ---- スマホ縦3サイズ × 全画面で一画面に収まる・はみ出さない
+for (const [w, h, name] of SIZES) {
+  const q = await open(browser, { viewport: { width: w, height: h } })
+  const views = {}
+  await q.waitForTimeout(600); views.title = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-title.png` })
+  await q.click('#bHow'); views.how = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-how.png` }); const oh = await overflow(q); await q.click('#howClose')
+  await begin(q, 21); await q.evaluate(() => { nk.G.noWatch = true; for (let i = 0; i < 20; i++) { nk.tap(i % 2); nk.dbg.step(8) } })
+  views.play = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-play.png` })
+  await q.evaluate(() => { nk.dbg.setP(93); nk.dbg.step(120) }); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-space.png` })
+  await q.evaluate(() => { nk.dbg.tick(60 * 80) }); await q.waitForFunction(() => nk.G.phase === 'done'); await q.waitForTimeout(1300)
+  views.end = await fit(q); await q.screenshot({ path: `${ROOT}/shots/fit-${name}-end.png` })
+  for (const [v, r] of Object.entries(views)) await t(`一画面に収まる ${name} ${w}x${h} ${v}`, async () => { expect(!r.over.length, JSON.stringify(r)) })
+  await t(`${name}: はみ出し・エラーなし`, async () => { const o = await overflow(q); expect(o.sw <= o.W && !o.bad.length && !oh.bad.length && !q.errs.length, JSON.stringify(o) + JSON.stringify(oh.bad) + q.errs.join('|')) })
+  await t(`${name}: 結果の文字が鑑定書からはみ出さない`, async () => {
+    const r = await q.evaluate(() => { const c = document.getElementById('cert').getBoundingClientRect(), bad = []; for (const el of document.querySelectorAll('#cert *')) { const r = el.getBoundingClientRect(); if (r.width && (r.bottom > c.bottom + 1 || r.right > c.right + 1 || r.left < c.left - 1)) bad.push(el.id || el.className || el.tagName) } return bad })
+    expect(!r.length, r.join(','))
+  })
+  await q.context().close()
+}
+await browser.close()
+
+// ---- WebKit（iPhone 相当）でタッチの通し
+const wb = await webkit.launch(), wp = await open(wb, { isMobile: true, hasTouch: true, deviceScaleFactor: 2 })
+await t('WebKit: 2本指の touchmove を止める', async () => {
+  const r = await wp.evaluate(() => { const e = new Event('touchmove', { cancelable: true, bubbles: true }); Object.defineProperty(e, 'touches', { value: [{}, {}] }); document.body.dispatchEvent(e); return e.defaultPrevented })
+  expect(r, r)
+})
+await t('WebKit: タップで始めて、指で左右交互にこすれる', async () => {
+  await wp.tap('#bStart'); await wp.waitForFunction(() => nk.G.phase === 'play', null, { timeout: 5000 })
+  await wp.evaluate(() => { nk.G.noWatch = true })
+  const L = await wp.evaluate(() => nk.sideXY(0)), R = await wp.evaluate(() => nk.sideXY(1))
+  for (let i = 0; i < 12; i++) { const s = i % 2 ? R : L; await wp.touchscreen.tap(s.x, s.y); await wp.waitForTimeout(110) }
+  const st = await wp.evaluate(() => nk.state()); expect(st.strokes >= 11, JSON.stringify(st)); return st.strokes
+})
+await t('WebKit: 実際には無音（タップで音を鳴らしたあと）', async () => { const r = await wp.evaluate(() => ({ ok: window.__muteOk(), calls: window.__soundCalls })); expect(r.ok && r.calls > 0, JSON.stringify(r)); return r })
+await t('WebKit: 結果まで通してエラーなし', async () => {
+  await wp.evaluate(() => { nk.dbg.pause(); nk.dbg.tick(60 * 80) }); await wp.waitForFunction(() => nk.G.phase === 'done'); await wp.waitForTimeout(600)
+  await wp.screenshot({ path: ROOT + '/shots/v-webkit-end.png' })
+  expect(wp.errs.length === 0, wp.errs.join('|'))
+})
+await wb.close()
+server.kill()
+console.log(results.join('\n'))
+console.log(`\n${pass} passed, ${fail} failed`)
+process.exit(fail ? 1 : 0)

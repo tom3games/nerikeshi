@@ -1,0 +1,38 @@
+- snd/amb_clock.mp3: File:Clock ticking.ogg / natalie / Public domain
+- snd/cough.mp3: File:Husten zwei mal.ogg / Thirunavukkarasye-Raveendran / CC BY 3.0
+- snd/bell.mp3: File:Old school bell 4.ogg / ezwa / Public domain
+- snd/giggle.mp3: Group giggling / Nocturnal_Vanguard / CC0
+- snd/absorb1.mp3: 40 CC0 water / splash / slime SFX / rubberduck / CC0
+- snd/absorb2.mp3: 40 CC0 water / splash / slime SFX / rubberduck / CC0
+- snd/absorb3.mp3: 40 CC0 water / splash / slime SFX / rubberduck / CC0
+- snd/absorb4.mp3: 40 CC0 water / splash / slime SFX / rubberduck / CC0
+- snd/pop1.mp3: 3 Pop Sounds / wubitog / CC0
+- snd/pop2.mp3: 3 Pop Sounds / wubitog / CC0
+- snd/pop3.mp3: 3 Pop Sounds / wubitog / CC0
+- snd/tear.mp3: Various Paper Sound Effects / Luckius / CC0
+- snd/crush.mp3: Various Paper Sound Effects / Luckius / CC0
+- snd/thwack1.mp3: Thwack Sounds / AntumDeluge / CC0
+- snd/thwack2.mp3: Thwack Sounds / AntumDeluge / CC0
+- snd/swish1.mp3: Swishes Sound Pack / artisticdude / CC0
+- snd/swish2.mp3: Swishes Sound Pack / artisticdude / CC0
+- snd/chime.mp3: File:Electronic doorbell.ogg / drb400atx / CC0
+- snd/heli.mp3: Helicopter Sounds / aquinn / CC0
+- snd/sat.mp3: 63 Digital sound effects (lasers, phasers, space etc.) / Kenney / CC0
+- snd/ufo.mp3: Theremin puccini high（0.25〜2.65秒を切り出し） / Effebit / Public domain
+- snd/crash.mp3: File:I_C_15356_a+b_x.ogg (切り出し) / Andreas Richter / CC BY 3.0
+- snd/drumroll.mp3: File:Drum Roll Intro.ogg / Iwan Sounds and DIY / CC0
+- snd/jgood.mp3: 85 Short music jingles / Kenney / CC0
+- snd/jmeh.mp3: 85 Short music jingles / Kenney / CC0
+- snd/jstage.mp3: 85 Short music jingles / Kenney / CC0
+- snd/click.mp3: Interface Sounds / Kenney / CC0
+- snd/page.mp3: 50 RPG sound effects / Kenney / CC0
+- snd/bgm_title.mp3: Recorder Jam / Of Far Different Nature / CC0
+- snd/bgm_play.mp3: Comedy Funny Background Song / Almitory / CC-BY 3.0,CC-BY 4.0,CC-BY-SA 3.0,CC-BY-SA 4.0,CC0,GPL 2.0,GPL 3.0,OGA-BY 3.0
+- snd/amb_town.mp3: 上の41〜65秒（静かな通り・車が1台通る）を1.5秒の重ね合わせで継ぎ目なしのループにしたもの（22.5秒・16kHz・WAV） / cori / Public domain
+- snd/amb_space.mp3: Wind / IgnasD / CC0
+- snd/snore.mp3: File:Roll2.ogg / No machine-readable author provided. -Morgenstern-~commonswi / Public domain
+- snd/amb_school.mp3: Crowd Shouting/Speaking Ambience / StarNinjas / CC0
+- snd/rub1〜rub8.mp3: File:292934-152 Writing-pen-paper-various marks and lines.wav（1回ずつに切り出し） / soundsnap / CC0
+- snd/chalk.mp3: File:WWS Chalk.ogg（7秒を切り出し） / Work With Sounds / La Fonderie / CC BY 4.0
+- snd/break1.mp3: 75 CC0 breaking / falling / hit sfx / rubberduck / CC0
+- snd/break2.mp3: 75 CC0 breaking / falling / hit sfx / rubberduck / CC0
