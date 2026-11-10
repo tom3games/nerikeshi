@@ -23,7 +23,7 @@ for (const [name, bt, opts] of [['chromium', chromium, {}], ['webkit', webkit, {
   await p.waitForFunction(() => nk.G.phase === 'play', null, { timeout: 8000 })
   for (let i = 0; i < 14; i++) { const s = await p.evaluate(i => nk.sideXY(i % 2), i); if (bt === webkit) await p.touchscreen.tap(s.x, s.y); else await p.mouse.click(s.x, s.y); await p.waitForTimeout(150) }
   const st = await p.evaluate(() => nk.state()); if (st.strokes < 6) errs.push('strokes ' + st.strokes)
-  await p.evaluate(() => { nk.dbg.pause(); nk.dbg.tick(60 * 80) }); await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 8000 })
+  await p.evaluate(() => { nk.dbg.pause(); nk.dbg.finish() }); await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 8000 })
   await p.screenshot({ path: `shots/live-${name}.png` })
   const og = await (async () => { const r = await fetch(URL0 + 'og.png'); return r.status + ' ' + r.headers.get('content-type') })()   // og:image は横丁の URL。横丁に載る前は github.io の物で確かめる
   out.push(`${name}: og=${og} errors=${errs.length ? errs.join(' | ') : 'none'}`)
