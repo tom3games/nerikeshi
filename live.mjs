@@ -25,7 +25,7 @@ for (const [name, bt, opts] of [['chromium', chromium, {}], ['webkit', webkit, {
   const st = await p.evaluate(() => nk.state()); if (st.strokes < 6) errs.push('strokes ' + st.strokes)
   await p.evaluate(() => { nk.dbg.pause(); nk.dbg.tick(60 * 80) }); await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 8000 })
   await p.screenshot({ path: `shots/live-${name}.png` })
-  const og = await p.evaluate(async () => { const r = await fetch(document.querySelector('meta[property="og:image"]').content); return r.status + ' ' + r.headers.get('content-type') })
+  const og = await (async () => { const r = await fetch(URL0 + 'og.png'); return r.status + ' ' + r.headers.get('content-type') })()   // og:image は横丁の URL。横丁に載る前は github.io の物で確かめる
   out.push(`${name}: og=${og} errors=${errs.length ? errs.join(' | ') : 'none'}`)
   await b.close()
 }
