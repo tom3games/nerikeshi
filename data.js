@@ -32,14 +32,22 @@ const NK_DATA = {
       howH: '遊び方',
       howBody: [
         '指で<b>左右になぞる</b>と消しゴムが指についてきてこする。左と右を交互にタップしてもいい。速いほどよく育つ',
-        '先生がこっちを向いている間にこすると見つかる。同じ側を3回続けて押すとノートが<b>ビリッ</b>と破れる。どちらも<b>2回で没収</b>',
+        '先生がこっちを向いている間にこすると見つかる。前の席の山田さんも不意に振り向いて<b>告げ口</b>する（椅子がきしんだら手を止める）。ノートを破る（同じ側を3回）も入れて<b>2回で没収</b>',
         '振り向く直前（首が動いて板書の音が止まった間）にこすると<b>ギリギリ</b>で2倍。大きくなるほど見張りも大きく速くなる',
       ],
       howClose: 'とじる',
       credits: '音: soundsnap / Work With Sounds（La Fonderie, CC BY 4.0）/ Thirunavukkarasye-Raveendran（CC BY 3.0）/ Andreas Richter（CC BY 3.0）/ Kenney / rubberduck / Luckius / AntumDeluge / artisticdude / Almitory / Of Far Different Nature / ほか（CC0・Public domain）。登場する学校と人物は架空です',
       privacy: 'プライバシー',
       kiritsu: ['起立', '礼', '着席'],
-      tutTap: '左右になぞってこする', tutWatch: '振り向く！手を止めて',
+      tutTap: '左右になぞってこする', tutWatch: '振り向く！手を止めて', tutClass: '前の席も振り向く',
+      tattled: '告げ口された', tellWord: { creak: 'ギシ', shrug: 'ピクッ', drop: 'コトッ', bulge: 'もぞ' },
+      // 前の席の山田さん。t0=ふつう / t1=二度見（大きくなってきた）/ t2=怯える / in=練り消しに飲みこまれた後 / loop=2時間目以降
+      c: {
+        look: { t0: ['……', 'ん？', '…じー'], t1: ['…え？', '…今の何', 'え、でかくない？'], t2: ['ひっ', '…机は？', 'こっち来ないで'], in: ['…中から見てるからね', '…じー', '…出して'] },
+        ask: { t0: ['消しゴム貸して', '今何ページ？', 'プリント1枚多い', 'シャー芯1本ちょうだい'], t1: ['消しゴム貸して…あ、いいや', 'それ消しゴム？'], t2: ['…それ、何？', '…いや、なんでもない'], in: ['ここ意外とあったかい', '外って今何時間目？', '田中くんもいる'] },
+        tattle: { t0: ['先生ー、練り消し作ってまーす', '先生、この人ずっとこすってます'], t1: ['先生！なんか大きくなってます', '先生、練り消しが育ってます'], t2: ['せ、先生…机が…', '先生、助けて'], in: ['せんせー！中から失礼します！', '先生、中からでも言います！'], loop: ['先生、この人宇宙作ってました', '先生、また最初からです'] },
+      },
+      ym: { none: '今日はずっと前を向いてました', zero: 'なにも見てません（見てました）', zeroIn: '中は意外と快適です', one: '言わなきゃと思って', oneIn: '中からでも言います', two: '2回言いました。後悔はないです' },
       thrill: 'ギリギリ', miss: '空振り', tear: 'ビリッ', caught: '見つかった',
       board: '質量保存の法則',
       sizeSuffix: 'くらい',
@@ -55,7 +63,7 @@ const NK_DATA = {
       // 取りこんだ時のひとこと [話す人, 文]
       itemLine: {
         tanakaEraser: ['tanaka', '…むにゃ、おれの'], pencase: ['back', '筆箱いった？'], note: ['me', 'ノート、まっ白'],
-        desk: ['back', '机ごといった'], tanaka: ['tanaka', '…zzz'], yamada: ['yamada', 'え、ちょ'], kyotaku: ['teacher', 'ここテストに出ます'],
+        desk: ['back', '机ごといった'], tanaka: ['tanaka', '…zzz'], yamada: ['yamada', 'え、ちょ、先生に言うから'], kyotaku: ['teacher', 'ここテストに出ます'],
         board: ['teacher', 'えー、黒板が無いので口で'], teacher: ['teacher', '…授業を続けます'],
         gym: ['principal', '体育は中止です'], school: ['principal', '本日は休校とします'],
         station: ['heli', '電車が遅れています'], tower: ['heli', '電波が入りません'],
@@ -82,7 +90,7 @@ const NK_DATA = {
       // 鑑定書
       cert: '練り消し鑑定書', certItem: '鑑定品', certItemV: '練り消し（2年3組 窓から三列目）',
       certMass: '重さ', certSize: '大きさ', certAte: '取りこんだ物', certNone: 'なし', certMore: 'ほか{n}点',
-      certStroke: 'こすった回数', certStrokeV: '{n}往復', certStrike: '注意', certStrikeV: '{n}回',
+      certStroke: 'こすった回数', certStrokeV: '{n}往復', certStrike: '注意', certStrikeV: '{n}回', certTattle: '告げ口', certTattleV: '{n}回', certYm: '山田さんの一言',
       certPrice: '鑑定額', certBy: '鑑定人　文房具屋のおじいさん', certStamp: '鑑定済', certConf: '没収',
       certNoteBlank: 'ノートはまっ白',
       ranks: [
@@ -109,14 +117,21 @@ const NK_DATA = {
       howH: 'How to play',
       howBody: [
         '<b>Swipe left and right</b> and the eraser follows your finger. Tapping left and right in turn works too. Faster grows it faster',
-        'Rub while the teacher is facing you and you get caught. Tap the same side three times and the page <b>rips</b>. <b>Two of either</b> and it is confiscated',
+        'Rub while the teacher is facing you and you get caught. Yamada in the seat ahead also turns around and <b>tells on you</b> (chair creaks: stop). Rip the page (same side three times) counts too. <b>Two strikes</b> and it is confiscated',
         'Rub right before they turn (head moving, chalk gone quiet) for a <b>close call</b> x2. The bigger it gets, the bigger the watcher',
       ],
       howClose: 'Close',
       credits: 'Sounds: soundsnap / Work With Sounds (La Fonderie, CC BY 4.0) / Thirunavukkarasye-Raveendran (CC BY 3.0) / Andreas Richter (CC BY 3.0) / Kenney / rubberduck / Luckius / AntumDeluge / artisticdude / Almitory / Of Far Different Nature / others (CC0, Public domain). The school and people are fictional.',
       privacy: 'Privacy',
       kiritsu: ['Stand', 'Bow', 'Sit'],
-      tutTap: 'Swipe left and right', tutWatch: 'Turning! Stop rubbing',
+      tutTap: 'Swipe left and right', tutWatch: 'Turning! Stop rubbing', tutClass: 'The seat ahead turns too',
+      tattled: 'Told on you', tellWord: { creak: 'creak', shrug: 'twitch', drop: 'clack', bulge: 'squirm' },
+      c: {
+        look: { t0: ['...', 'Hm?', '...stare'], t1: ['...huh?', 'What was that', 'Is that bigger?'], t2: ['Eek', '...where is the desk', 'Stay away'], in: ["...I'm watching from in here", '...stare', '...let me out'] },
+        ask: { t0: ['Can I borrow an eraser', 'What page are we on?', 'I got an extra handout', 'Got any pencil lead?'], t1: ['Can I borrow... never mind', 'Is that an eraser?'], t2: ['...what is that', '...nothing'], in: ["It's warm in here", 'What period is it out there?', "Tanaka's in here too"] },
+        tattle: { t0: ["Teacher! Someone's making eraser putty", "Teacher, they won't stop rubbing"], t1: ["Teacher! It's getting bigger", 'Teacher, the putty is growing'], t2: ['T-teacher... the desk...', 'Teacher, help'], in: ['Teacher! Sorry, from inside here!', "Teacher, I'll still tell from in here!"], loop: ['Teacher, they made a universe', "Teacher, they're starting over"] },
+      },
+      ym: { none: 'I was facing forward all day', zero: 'I saw nothing (I saw it)', zeroIn: "It's comfy in here", one: 'I felt I had to say it', oneIn: 'I told from inside', two: 'I told twice. No regrets' },
       thrill: 'Close call', miss: 'Miss', tear: 'Rip', caught: 'Caught',
       board: 'Conservation of Mass',
       sizeSuffix: '',
@@ -131,7 +146,7 @@ const NK_DATA = {
       },
       itemLine: {
         tanakaEraser: ['tanaka', '...hey, mine'], pencase: ['back', 'Was that a pencil case?'], note: ['me', 'Notes: blank'],
-        desk: ['back', 'The whole desk?'], tanaka: ['tanaka', '...zzz'], yamada: ['yamada', 'Wait, what'], kyotaku: ['teacher', 'This is on the test'],
+        desk: ['back', 'The whole desk?'], tanaka: ['tanaka', '...zzz'], yamada: ['yamada', "Wait, I'm telling"], kyotaku: ['teacher', 'This is on the test'],
         board: ['teacher', 'No board, so listen'], teacher: ['teacher', '...class continues'],
         gym: ['principal', 'P.E. is cancelled'], school: ['principal', 'School is closed today'],
         station: ['heli', 'Trains are delayed'], tower: ['heli', 'No signal'],
@@ -156,7 +171,7 @@ const NK_DATA = {
       bigbang: 'Big Bang',
       cert: 'Certificate of Appraisal', certItem: 'Item', certItemV: 'Kneaded eraser (Class 2-3, third row)',
       certMass: 'Weight', certSize: 'Size', certAte: 'Swallowed', certNone: 'nothing', certMore: '+{n} more',
-      certStroke: 'Rubs', certStrokeV: '{n}', certStrike: 'Warnings', certStrikeV: '{n}',
+      certStroke: 'Rubs', certStrokeV: '{n}', certStrike: 'Warnings', certStrikeV: '{n}', certTattle: 'Told on', certTattleV: '{n}x', certYm: "Yamada's word",
       certPrice: 'Appraised at', certBy: 'Appraiser: the old man at the stationery shop', certStamp: 'APPRAISED', certConf: 'TAKEN',
       certNoteBlank: 'Notebook: blank',
       ranks: [

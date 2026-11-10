@@ -140,6 +140,61 @@ await t('フェイント（チョーク折れた）の間は押しても見つ�
   })
   expect(r.st === 'fake' && r.res === 'ok' && r.strikes === 0 && r.bub, JSON.stringify(r)); return r
 })
+// ---- 前の席の山田さん（告げ口）
+const cBegin = (p, seed) => p.evaluate(sd => { nk.dbg.seed(sd); nk.start(); nk.dbg.pause(); nk.dbg.skipKiritsu(); const G = nk.G; G.noTeacher = true; for (let i = 0; i < 20; i++) { nk.tap(i % 2); nk.dbg.tick(10) } }, seed)
+await t('山田さん: 振り向く前に必ず前ぶれ（0.5秒以上）・最初の1回は聞くだけ・序盤20秒は振り向かない', async () => {
+  await cBegin(p, 31)
+  const r = await p.evaluate(() => {
+    const G = nk.G, seq = []; let prev = 'idle', tellDur = 0, firstT = -1
+    for (let f = 0; f < 60 * 240; f++) {
+      nk.dbg.tick(1); const c = G.c
+      if (c.st !== prev) { if (c.st === 'tell') { tellDur = c.dur; if (firstT < 0) firstT = G.t } if (c.st === 'look' || c.st === 'ask') seq.push([prev, c.st, +tellDur.toFixed(2)]); prev = c.st }
+    }
+    return { n: seq.length, bad: seq.filter(s => s[0] !== 'tell' || s[2] < 0.48).length, first: seq[0] && seq[0][1], minTell: Math.min(...seq.map(s => s[2])), asks: seq.filter(s => s[1] === 'ask').length, firstT: +firstT.toFixed(1) }
+  })
+  expect(r.n >= 10 && r.bad === 0 && r.first === 'ask' && r.asks >= 2 && r.asks < r.n && r.firstT >= 20, JSON.stringify(r)); return r
+})
+await t('山田さん: 振り向いている間にこすると告げ口＝注意1回（先生も振り向く）', async () => {
+  await cBegin(p, 32)
+  const r = await p.evaluate(() => {
+    const G = nk.G; G.noClass = false; G.c.st = 'look'; G.c.t = 0.3; G.c.dur = 5; G.c.tier = 't0'
+    const res = nk.tap(G.lastSide ? 0 : 1)
+    const o = { res, strikes: G.strikes, tattles: G.tattles, w: G.w.st, c: G.c.st, bub: G.bub && G.bub.who, lock: G.lock > 1 }
+    nk.dbg.tick(90); o.later = G.bub && G.bub.who; o.phase = G.phase; return o
+  })
+  expect(r.res === 'tattle' && r.strikes === 1 && r.tattles === 1 && r.w === 'caught' && r.c === 'tattle' && r.bub === 'yamada' && r.lock && r.later === 'teacher' && r.phase === 'play', JSON.stringify(r)); return r
+})
+await t('山田さん: 前ぶれの間と「聞くだけ」の間はこすっても告げ口されない', async () => {
+  await cBegin(p, 33)
+  const r = await p.evaluate(() => {
+    const G = nk.G
+    G.c.st = 'tell'; G.c.t = 0; G.c.dur = 0.6; const a = nk.tap(G.lastSide ? 0 : 1)
+    G.c.st = 'look'; G.c.t = 0.05; G.c.dur = 5; const b = nk.tap(G.lastSide ? 0 : 1)   // 振り向いた最初の0.15秒は猶予
+    G.c.st = 'ask'; G.c.t = 0.5; G.c.dur = 1.6; nk.dbg.tick(1); const c = nk.tap(G.lastSide ? 0 : 1)
+    return { a, b, c, strikes: G.strikes, tattles: G.tattles }
+  })
+  expect(r.a === 'ok' && r.b === 'ok' && r.c === 'ok' && r.strikes === 0 && r.tattles === 0, JSON.stringify(r)); return r
+})
+await t('山田さん: 練り消しに飲みこまれても中から告げ口する（町でも）', async () => {
+  await cBegin(p, 34)
+  const r = await p.evaluate(() => {
+    const G = nk.G; nk.dbg.setP(62); nk.dbg.tick(200)
+    const gone = G.items.yamada === 2; G.lock = 0; G.trans = null; G.c.st = 'idle'; G.c.next = 0; G.c.turns = 3; G.strokes = Math.max(G.strokes, 20)
+    let f = 0; while (G.c.st !== 'tell' && f++ < 60 * 30) nk.dbg.tick(1)
+    const kind = G.c.kind; G.c.ask = false; let g = 0; while (G.c.st !== 'look' && g++ < 120) nk.dbg.tick(1)
+    nk.dbg.tick(12); const res = nk.tap(G.lastSide ? 0 : 1)
+    return { gone, scene: G.sceneNow, kind, res, line: G.c.line, tattles: G.tattles }
+  })
+  expect(r.gone && r.scene === 'town' && r.kind === 'bulge' && r.res === 'tattle' && r.tattles === 1 && r.line, JSON.stringify(r)); return r
+})
+await t('山田さん: 告げ口2回で没収、鑑定書に告げ口の回数と山田さんの一言', async () => {
+  await cBegin(p, 35)
+  await p.evaluate(() => { const G = nk.G; for (let k = 0; k < 2; k++) { G.lock = 0; G.c.st = 'look'; G.c.t = 0.3; G.c.dur = 5; G.c.tier = 't0'; nk.tap(G.lastSide ? 0 : 1); nk.dbg.tick(120) } nk.dbg.tick(400) })
+  await p.waitForFunction(() => nk.G.phase === 'done', null, { timeout: 5000 }); await p.waitForTimeout(900)
+  const r = await p.evaluate(() => ({ reason: nk.result().reason, tattles: nk.result().tattles, dl: document.getElementById('cDl').textContent, ym: document.getElementById('cYm').textContent }))
+  await p.screenshot({ path: ROOT + '/shots/v-end-tattle.png' })
+  expect(r.reason === 'out' && r.tattles === 2 && /告げ口2回/.test(r.dl) && /山田さんの一言「2回言いました/.test(r.ym), JSON.stringify(r)); return r
+})
 await t('時間では終わらない: 何もしないで3分たっても授業は続く（注意0・重さほぼ0）', async () => {
   await begin(p, 16)
   const r = await p.evaluate(() => { nk.dbg.tick(60 * 180); return { phase: nk.G.phase, P: nk.G.P, strikes: nk.G.strikes, turns: nk.G.turns } })
@@ -306,8 +361,35 @@ await t('WebKit: 指でなぞる（左へなぞると消しゴムは左・往復
   expect(r.l < -0.5 && r.r > 0.5 && r.n === 2, JSON.stringify(r)); return r
 })
 await t('WebKit: 実際には無音（タップで音を鳴らしたあと）', async () => { const r = await wp.evaluate(() => ({ ok: window.__muteOk(), calls: window.__soundCalls })); expect(r.ok && r.calls > 0, JSON.stringify(r)); return r })
+await t('WebKit: 裏に回ると BGM と環境音が止まり suspend。戻っても触るまで鳴らない（bfcache の pageshow でも）', async () => {
+  const r = await wp.evaluate(async () => {
+    const c = Snd.ctx; let sus = 0; const os = c.suspend.bind(c); c.suspend = () => { sus++; return os() }
+    await new Promise(r => setTimeout(r, 900)); const before = Snd.playing().length
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' }); document.dispatchEvent(new Event('visibilitychange'))
+    const hid = { away: Snd.away, playing: Snd.playing().length, sus, gain: Snd.master.gain.value }
+    const p0 = Snd.played.rub || 0; nk.tap(nk.G.lastSide ? 0 : 1); Snd.loop('test', 'snd/amb_clock.mp3', 0.2)   // 裏にいる間の音は鳴らさない
+    await new Promise(r => setTimeout(r, 400)); const quiet = Snd.playing().length
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'visible' }); document.dispatchEvent(new Event('visibilitychange'))
+    window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }))
+    await new Promise(r => setTimeout(r, 400)); const back = { away: Snd.away, playing: Snd.playing().length, gain: Snd.master.gain.value }
+    Snd.loop('test', null)
+    return { before, hid, quiet, back, p0 }
+  })
+  const L = await wp.evaluate(() => nk.sideXY(0)); await wp.touchscreen.tap(L.x, L.y); await wp.waitForTimeout(700)
+  const after = await wp.evaluate(() => ({ away: Snd.away, playing: Snd.playing().length, wake: Snd.life.wake, mute: window.__muteOk() }))
+  expect(r.before >= 2 && r.hid.away && r.hid.playing === 0 && r.hid.sus === 1 && r.hid.gain === 0 && r.quiet === 0 && r.back.away && r.back.playing === 0 && r.back.gain === 0 && !after.away && after.playing >= 2 && after.wake === 1 && after.mute, JSON.stringify({ r, after })); return { before: r.before, after: after.playing }
+})
+await t('WebKit: 横丁へ移る（pagehide）と止まり、戻るで戻っても鳴っていない', async () => {
+  await wp.evaluate(() => addEventListener('pagehide', () => { try { sessionStorage.setItem('nkHide', JSON.stringify({ away: Snd.away, playing: Snd.playing().length, hide: Snd.life.hide })) } catch (e) {} }))
+  await wp.goto(URL0 + 'privacy.html'); await wp.waitForTimeout(300)
+  const hid = await wp.evaluate(() => sessionStorage.getItem('nkHide'))
+  await wp.goBack(); await wp.waitForFunction(() => window.__nkReady, null, { timeout: 15000 }); await wp.waitForTimeout(800)
+  const back = await wp.evaluate(() => ({ playing: Snd.playing().length, scene: nk.G.scene, ctx: !!Snd.ctx, away: Snd.away }))
+  const h = JSON.parse(hid || '{}')
+  expect(h.away && h.playing === 0 && back.playing === 0, JSON.stringify({ h, back })); return { h, back }
+})
 await t('WebKit: 結果まで通してエラーなし', async () => {
-  await wp.evaluate(() => { nk.dbg.pause(); nk.dbg.finish() }); await wp.waitForFunction(() => nk.G.phase === 'done'); await wp.waitForTimeout(600)
+  await wp.evaluate(() => { nk.start(); nk.dbg.pause(); nk.dbg.skipKiritsu(); nk.dbg.finish() }); await wp.waitForFunction(() => nk.G.phase === 'done'); await wp.waitForTimeout(600)
   await wp.screenshot({ path: ROOT + '/shots/v-webkit-end.png' })
   expect(wp.errs.length === 0, wp.errs.join('|'))
 })

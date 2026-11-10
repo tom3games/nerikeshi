@@ -28,6 +28,7 @@ Snd.def({
   cough: 'snd/cough.mp3', giggle: 'snd/giggle.mp3', bell: 'snd/bell.mp3', chime: 'snd/chime.mp3', sat: 'snd/sat.mp3', ufo: 'snd/ufo.mp3',
   crash: 'snd/crash.mp3', drum: 'snd/drumroll.mp3', brk: ['snd/break1.mp3', 'snd/break2.mp3'], jgood: 'snd/jgood.mp3', jmeh: 'snd/jmeh.mp3',
   jstage: 'snd/jstage.mp3', click: 'snd/click.mp3', page: 'snd/page.mp3', snore: 'snd/snore.mp3',
+  creak: ['snd/creak1.mp3', 'snd/creak2.mp3'], cloth: 'snd/cloth1.mp3', hand: 'snd/cloth2.mp3', drop: 'snd/drop.mp3',
 })
 const LOOPS = { bgmT: 'snd/bgm_title.mp3', bgm: 'snd/bgm_play.mp3', clock: 'snd/amb_clock.mp3', chalk: 'snd/chalk.mp3', school: 'snd/amb_school.mp3', town: 'snd/amb_town.mp3', space: 'snd/amb_space.mp3', heli: 'snd/heli.mp3' }
 let muted = false
@@ -175,10 +176,13 @@ function fresh() {
     lock: 0, items: {}, ate: [], rim: [], fly: [], parts: [], wob: 0, squash: 0, roll: 0, rollV: 0, shake: 0, erase: 0, ink: 0, flash: [0, 0],
     w: { type: 'teacher', st: 'idle', t: 0, dur: 0, next: 4.5, fake: false }, chalkShot: null, lastPopT: -9, lastThrillPop: -9,
     bub: null, ev: [], et: 0, endReason: '', bigbang: false, loop: 0, outQueued: false, flashBB: 0, gift: R() < 0.55 ? rr(16, 42) : -1, sleepT: rr(9, 22), drum: false, tutDone: false, tutWatch: false,
-    best: null, isBest: false, heads: makeHeads(), noWatch: false, forceTell: false, result: null,
+    best: null, isBest: false, heads: makeHeads(), noWatch: false, noTeacher: false, noClass: false, forceTell: false, result: null,
+    c: freshC(rr(24, 34)), tattles: 0, tutClass: false,
   })
   for (const it of D.ITEMS) G.items[it.id] = 0
 }
+// 前の席の山田さん（先生とは別に不意に振り向く）。st: idle / tell（前ぶれ）/ look / ask（聞くだけ）/ tattle（告げ口）/ back
+function freshC(next) { return { st: 'idle', t: 0, dur: 0, next, kind: 'creak', turns: 0, inside: false, tier: 0 } }
 function makeHeads() {
   const hair = ['#2b2a28', '#3a2f25', '#4a3a2a', '#262626', '#5a4330']
   const hs = []
@@ -246,7 +250,7 @@ function wUpdate(dt) {
   if (!type) return
   w.t += dt
   if (w.st === 'idle') {
-    if (!G.noWatch && (G.lock <= 0 || G.forceTell) && G.t >= w.next && (G.turns > 0 || G.forceTell || (G.t > 6.5 && G.strokes >= 12) || G.t > 11)) { G.forceTell = false; startTell() }
+    if (!G.noWatch && !G.noTeacher && (G.lock <= 0 || G.forceTell) && G.t >= w.next && (G.turns > 0 || G.forceTell || (G.t > 6.5 && G.strokes >= 12) || G.t > 11)) { G.forceTell = false; startTell() }
   } else if (w.st === 'tell') {
     if (w.t >= w.dur) {
       if (w.fake) { setW('fake', 1.25); say(type, pick(T().w[type].fake)); log('fake', type) }
@@ -258,12 +262,46 @@ function wUpdate(dt) {
 }
 const watching = () => G.w.type && (G.w.st === 'look' && G.w.t > 0.15)
 
+// ---- 前の席の山田さん ----
+// 前ぶれ（椅子のきしみ・肩がぴくっ・消しゴムを落とす）は先生より短く小さい。最初の1回は必ず「聞くだけ」
+const cTell = () => Math.max(0.5, 0.66 - lvl() * 0.012) * rr(0.95, 1.05)
+const cInterval = () => Math.max(3.2, rr(8.5, 13) - Math.min(4, G.t / 40) - G.loop * 1.5)
+function cTier() { if (gone('yamada')) return 'in'; if (G.P >= 32) return 't2'; if (G.P >= 18) return 't1'; return 't0' }
+function setC(st, dur) { G.c.st = st; G.c.t = 0; G.c.dur = dur }
+const yamadaHere = () => G.items.yamada === 0 || G.items.yamada === 2
+function cUpdate(dt) {
+  const c = G.c
+  c.t += dt
+  if (G.items.yamada === 1 && c.st !== 'idle' && c.st !== 'back' && c.st !== 'tattle') setC('back', 0.3)   // 飲みこまれる最中は見ていない
+  if (c.st === 'idle') {
+    if (G.noWatch || G.noClass || G.lock > 0 || G.t < c.next || G.strokes < 16 || G.trans || !yamadaHere() || G.w.st === 'caught') return
+    c.kind = gone('yamada') ? 'bulge' : pick(['creak', 'creak', 'shrug', 'drop'])
+    c.inside = gone('yamada'); c.tier = cTier(); c.ask = c.turns === 0 || R() < 0.25
+    setC('tell', cTell()); c.turns++; log('ctell', c.kind + (c.ask ? ':ask' : ''))
+    if (c.kind === 'creak' || c.kind === 'bulge') sfx('creak', { vol: 0.45, rate: c.inside ? 0.7 : 1, dest: c.inside ? 'muf' : undefined })
+    else if (c.kind === 'shrug') sfx('cloth', { vol: 0.5 })
+    else sfx('drop', { vol: 0.55 })
+  } else if (c.st === 'tell') {
+    if (c.t >= c.dur) {
+      const L = T().c
+      if (c.ask) { setC('ask', 1.6); say('yamada', pick(L.ask[c.tier] || L.ask.t0)); log('cask', c.tier) }
+      else { setC('look', rr(1.0, 1.5)); say('yamada', pick(L.look[c.tier])); log('clook', c.tier) }
+    }
+  } else if (c.st === 'look' || c.st === 'ask' || c.st === 'tattle') {
+    if (c.t >= c.dur) { setC('back', 0.3); if (!G.tutClass) { G.tutClass = true; popT(T().tutClass, 'tut') } }   // 1回目が終わってから教える（前ぶれを隠さない）
+  }
+  else if (c.t >= c.dur) { setC('idle', 0); c.next = G.t + cInterval() }
+}
+const cWatching = () => G.c.st === 'look' && G.c.t > 0.15
+function tattleLine() { const L = T().c.tattle; if (G.loop && !gone('yamada') && R() < 0.5) return pick(L.loop); return pick(L[cTier()]) }
+
 // ---- 入力 ----
 function tap(side, drag) {
   if (G.phase !== 'play') return false
   G.flash[side] = 1
   if (G.lock > 0) return false
   if (watching()) { caught(); return 'caught' }
+  if (cWatching()) { caught('class'); return 'tattle' }
   if (side === G.lastSide && drag) return 'same'
   if (side === G.lastSide) {
     G.same++; G.combo = 0; G.misses++
@@ -287,15 +325,24 @@ function tap(side, drag) {
   if (!G.tutDone && G.strokes >= 8) G.tutDone = true
   return 'ok'
 }
-function caught() {
-  const w = G.w
-  setW('caught', 1.45); G.strikes++; G.combo = 0; G.lock = 1.45; G.shake = 1
+// 見つかる。src='class' は山田さんの告げ口（先生に見つかったのと同じ1回）
+function caught(src) {
+  const w = G.w, byClass = src === 'class'
+  if (w.type) setW('caught', 1.45)
+  G.strikes++; G.combo = 0; G.lock = 1.45; G.shake = 1
   const floor = G.stage * 10
   G.P = Math.max(floor, G.P - 3)
-  say(w.type, pick(T().w[w.type].caught)); popT(T().caught, '')
-  sfx('thwack', { vol: 0.9 }); sfx('giggle', { vol: 0.45, delay: 0.25 })
-  log('caught', w.type)
-  if (w.type === 'teacher' || w.type === 'cosmic') G.chalkShot = { t: 0 }
+  if (byClass) {
+    G.tattles++; setC('tattle', 1.7); G.c.line = tattleLine()
+    say('yamada', G.c.line, true); popT(T().tattled, ''); sfx('hand', { vol: 0.6 })
+    if (w.type) { const ty = w.type; setTimeout0(1.25, () => { if (G.phase === 'play') say(ty, pick(T().w[ty].caught), true) }) }
+    sfx('thwack', { vol: 0.9, delay: 0.5 }); sfx('giggle', { vol: 0.45, delay: 0.8 })
+  } else {
+    say(w.type, pick(T().w[w.type].caught)); popT(T().caught, '')
+    sfx('thwack', { vol: 0.9 }); sfx('giggle', { vol: 0.45, delay: 0.25 })
+  }
+  log('caught', byClass ? 'class' : w.type)
+  if (w.type === 'teacher' || w.type === 'cosmic') G.chalkShot = { t: byClass ? -0.5 : 0 }
   strikeOut()
 }
 function strikeOut() { if (G.strikes >= D.STRIKES && !G.outQueued) { G.outQueued = true; G.endReason = 'out'; G.lock = 9; setTimeout0(1.4, () => endSeq('out')) } }
@@ -362,7 +409,7 @@ function whoPos(who) {
   if (who === 'teacher') return gone('teacher') ? [b.x, b.y - b.r] : [teacherX() + 0.04 * W, 0.12 * H]
   if (who === 'tanaka') return gone('tanaka') ? [b.x, b.y - b.r] : [0.84 * W, 0.44 * H]
   if (who === 'back') return [0.5 * W, 0.9 * H]
-  if (who === 'yamada') return gone('yamada') ? [b.x, b.y - b.r] : [0.5 * W, 0.42 * H]
+  if (who === 'yamada') { if (!gone('yamada')) return [0.5 * W, 0.42 * H]; const q = insidePos(); return [q.x, q.top - q.r * 2.6] }
   if (who === 'principal') return [0.26 * W, 0.45 * H]
   if (who === 'heli') return [0.66 * W, 0.15 * H]
   if (who === 'sat') return [0.5 * W, 0.15 * H]
@@ -370,11 +417,11 @@ function whoPos(who) {
   if (who === 'cosmic') return [0.5 * W, 0.12 * H]
   return [b.x, Math.max(0.2 * H, b.y - b.r)]
 }
-function say(who, text) {
+function say(who, text, force) {
   const cur = G.bub
-  if (cur && cur.pri && G.clk < cur.until && who !== cur.who) return
+  if (!force && cur && cur.pri && G.clk < cur.until && who !== cur.who) return
   const dur = Math.max(1.4, 0.9 + 0.09 * text.length)
-  G.bub = { who, text, until: G.clk + dur, pri: G.w.st === 'caught' }
+  G.bub = { who, text, until: G.clk + dur, pri: G.w.st === 'caught' || G.c.st === 'tattle' }
   bubEl.textContent = text; bubEl.classList.add('on'); placeBub()
 }
 function placeBub() {
@@ -422,6 +469,7 @@ function bigBang() {
   G.P = 0; G.Pv = 0; G.stage = 0; G.drum = false; G.erase = 0; G.ink = 0; G.fly = []; G.parts = []; G.heads = makeHeads()
   for (const it of D.ITEMS) G.items[it.id] = 0
   G.trans = { from, t: 0 }; sceneSound('room'); setW('idle', 0); G.w.type = 'teacher'; G.w.next = G.t + 2.5
+  const ct = G.c.turns; G.c = freshC(G.t + rr(6, 9)); G.c.turns = ct
   setTimeout0(1.1, () => popT(T().nextPeriod.replace('{n}', G.loop + 1), 'big ink'))
 }
 function endSeq(reason) {
@@ -441,7 +489,7 @@ function update(dt) {
     if (G.kt >= 1.4) { G.phase = 'play'; loopVol('chalk', 0.32); popT(T().tutTap, 'tut') }
   } else if (G.phase === 'play') {
     G.t += dt; G.lock = Math.max(0, G.lock - dt)
-    wUpdate(dt); absorbTick()
+    wUpdate(dt); cUpdate(dt); absorbTick()
     if (G.w.st === 'idle' && (G.w.type === 'teacher')) G.ink = Math.min(1, G.ink + dt * 0.03)
     if (G.gift > 0 && G.t >= G.gift && G.w.st === 'idle' && G.sceneNow === 'room') { G.gift = -1; say('back', T().backGift); addP(2); spawnCrumbs(14); log('gift', 1) }
     if (G.sleepT > 0 && G.t >= G.sleepT && !gone('tanaka') && !G.bub) { G.sleepT = G.t + rr(14, 24); say('tanaka', pick(T().tanakaSleep)); sfx('snore', { vol: 0.35 }) }
@@ -495,6 +543,7 @@ function drawRoom() {
   for (const h of G.heads) {
     if (h.id && G.items[h.id] !== 0) continue
     const x = h.fx * W, y = h.fy * H + Math.sin(G.clk * 1.3 + h.ph) * 0.8 * U, r = h.fr * W
+    if (h.id === 'yamada') { drawYamada(x, y, r, h); continue }
     sk(ellP(x, y + r * 1.25, r * 1.55, r * 0.85, Math.PI, Math.PI * 2), { fill: h.shirt })
     sk(ellP(x - r * 0.95, y + r * 0.15, r * 0.18, r * 0.26), { fill: '#efcfae', w: 1 }); sk(ellP(x + r * 0.95, y + r * 0.15, r * 0.18, r * 0.26), { fill: '#efcfae', w: 1 })
     sk(ellP(x, y, r, r * 1.05), { fill: h.hair, seed: Math.round(h.ph * 10) })
@@ -517,6 +566,89 @@ function drawRoom() {
     cx.fillStyle = '#c4a77c'; cx.fillRect(0, deskTop + 0.03 * H, W, H)
     for (let i = 0; i < 7; i++) { const x = (i + 0.5) / 7 * W; sk(lineP(x, deskTop + 0.03 * H, lerp(x, 0.5 * W, -0.6), H), { open: true, col: 'rgba(90,60,30,.25)', w: 1, j: 1, seed: 90 + i }) }
   }
+}
+// 山田さん（前の席）。後ろ姿、前ぶれ（きしみ・肩・消しゴム）、振り向き（見る・聞く・告げ口）
+function yamadaFace(x, y, r, mood) {
+  const sk2 = '#efcfae', hair = '#4a3424'
+  sk(ellP(x + r * 0.08, y + r * 0.05, r * 0.86, r * 0.95), { fill: sk2, seed: 811 })
+  sk(ellP(x + r * 0.05, y - r * 0.3, r * 0.98, r * 0.66, Math.PI * 0.98, Math.PI * 2.02), { fill: hair, w: 1.2, seed: 812 })
+  sk(ellP(x - r * 0.95, y + r * 0.25, r * 0.28, r * 0.6), { fill: hair, seed: 813 })   // 横に回ったしっぽ
+  sk(ellP(x - r * 0.78, y - r * 0.05, r * 0.13, r * 0.11), { fill: '#c93f3f', w: 1 })
+  const ey = y + r * 0.05, ex = r * 0.34
+  if (mood === 'scared') {
+    for (const s of [-1, 1]) sk(ellP(x + s * ex + r * 0.08, ey, r * 0.17, r * 0.2), { fill: '#fbfbf8', w: 1.1, seed: 820 + s })
+    cx.fillStyle = INK; cx.beginPath(); cx.arc(x - ex + r * 0.08, ey + r * 0.04, r * 0.06, 0, 7); cx.arc(x + ex + r * 0.08, ey + r * 0.04, r * 0.06, 0, 7); cx.fill()
+    sk(ellP(x + r * 0.08, y + r * 0.5, r * 0.12, r * 0.14), { fill: '#7a3b30', w: 1 })
+    for (let i = 0; i < 3; i++) sk(lineP(x + r * (1.05 + i * 0.12), y - r * (0.5 - i * 0.4), x + r * (1.3 + i * 0.12), y - r * (0.6 - i * 0.4)), { open: true, w: 1.2, col: '#56554f', seed: 830 + i })
+  } else {
+    cx.fillStyle = INK; cx.beginPath(); cx.arc(x - ex + r * 0.08, ey + r * 0.06, r * 0.08, 0, 7); cx.arc(x + ex + r * 0.08, ey + r * 0.06, r * 0.08, 0, 7); cx.fill()
+    if (mood === 'ask') sk(ellP(x + r * 0.08, y + r * 0.42, r * 0.2, r * 0.12, 0.2, Math.PI - 0.2), { open: true, w: 1.3, seed: 840 })
+    else if (mood === 'tattle') sk(ellP(x + r * 0.08, y + r * 0.48, r * 0.16, r * 0.14), { fill: '#7a3b30', w: 1, seed: 841 })
+    else sk(lineP(x - r * 0.08, y + r * 0.48, x + r * 0.24, y + r * 0.45), { open: true, w: 1.2, seed: 842 })
+    if (mood === 'look') for (const s of [-1, 1]) sk(lineP(x + s * ex - r * 0.1, ey - r * 0.22, x + s * ex + r * 0.22, ey - r * 0.16), { open: true, w: 1.3, seed: 845 + s })   // じとっ
+  }
+}
+function drawYamada(x, y, r, h) {
+  const c = G.c, st = c.st, k = c.dur ? clamp(c.t / c.dur, 0, 1) : 0
+  let dy = 0, dx = 0, shoulder = 0
+  if (st === 'tell') {
+    if (c.kind === 'creak') dx = Math.sin(c.t * 34) * r * 0.14
+    if (c.kind === 'shrug') { shoulder = Math.sin(Math.min(1, k * 2) * Math.PI) * r * 0.32; dy = -shoulder * 0.5 }
+    if (c.kind === 'drop') { dx = -r * 0.25 * sm(k * 2); dy = r * 0.2 * sm(k * 2) }
+  }
+  const turned = st === 'look' || st === 'ask' || st === 'tattle'
+  // 二度見: 見る最初の0.4秒で一度前を向き直す
+  const dbl = st === 'look' && c.tier === 't1' && c.t > 0.12 && c.t < 0.3
+  const shake = st === 'look' && c.tier === 't2' ? Math.sin(G.clk * 70) * r * 0.05 : 0
+  // 肩と体
+  sk(ellP(x, y + r * 1.25 - shoulder, r * 1.55, r * 0.85, Math.PI, Math.PI * 2), { fill: h.shirt })
+  if (st === 'tattle') {   // 右手を挙げる
+    const up = sm(c.t / 0.25)
+    sk(lineP(x + r * 1.1, y + r * 0.9, x + r * lerp(1.3, 1.25, up), y + r * lerp(0.6, -1.7, up)), { open: true, w: 5, col: h.shirt === '#f3f1ea' ? '#d8d5cb' : h.shirt, seed: 850 })
+    sk(ellP(x + r * 1.25, y + r * lerp(0.5, -1.95, up), r * 0.22, r * 0.26), { fill: '#efcfae', w: 1, seed: 851 })
+  }
+  const hx = x + dx + shake, hy = y + dy
+  if (turned && !dbl) { yamadaFace(hx, hy, r, st === 'ask' ? 'ask' : st === 'tattle' ? 'tattle' : c.tier === 't2' ? 'scared' : 'look'); return }
+  // 後ろ姿（元の絵）
+  sk(ellP(hx - r * 0.95, hy + r * 0.15, r * 0.18, r * 0.26), { fill: '#efcfae', w: 1 }); sk(ellP(hx + r * 0.95, hy + r * 0.15, r * 0.18, r * 0.26), { fill: '#efcfae', w: 1 })
+  sk(ellP(hx, hy, r, r * 1.05), { fill: h.hair, seed: Math.round(h.ph * 10) })
+  sk(polyP([[hx - r * 0.3, hy - r * 0.95], [hx - r * 0.1, hy - r * 1.25], [hx + r * 0.05, hy - r * 0.98]], false), { open: true, w: 1.4, col: h.hair })
+  sk(ellP(hx + r * 0.05, hy + r * 0.95, r * 0.32, r * 0.55), { fill: h.hair }); sk(ellP(hx, hy + r * 0.55, r * 0.14, r * 0.12), { fill: '#c93f3f', w: 1 })
+}
+// 前ぶれの印（机より手前に描く）: きしみの線・肩のぴくっ・落ちる消しゴムと、小さな擬音
+function drawYamadaTell() {
+  const c = G.c; if (c.st !== 'tell' || G.items.yamada !== 0 || G.sceneNow !== 'room') return
+  const h = G.heads.find(q => q.id === 'yamada'); if (!h) return
+  const x = h.fx * W, y = h.fy * H, r = h.fr * W, k = c.dur ? clamp(c.t / c.dur, 0, 1) : 0
+  const col = '#56554f'
+  if (c.kind === 'creak') for (const s of [-1, 1]) { const bx = x + s * r * 1.75, by = y + r * 0.9; sk([[bx, by - r * 0.5], [bx + s * r * 0.2, by - r * 0.3], [bx, by - r * 0.1], [bx + s * r * 0.2, by + r * 0.1]], { open: true, w: 1.6, col, seed: 860 + s }) }
+  if (c.kind === 'shrug') for (const s of [-1, 1]) for (let i = 0; i < 2; i++) sk(lineP(x + s * r * (1.15 + i * 0.25), y + r * (0.15 - i * 0.1), x + s * r * (1.35 + i * 0.25), y - r * (0.2 + i * 0.1)), { open: true, w: 1.5, col, seed: 865 + s + i * 3 })
+  if (c.kind === 'drop') { const u = Math.min(1, k * 1.3), fx = x - r * lerp(1.1, 1.9, u), fy = y + r * (0.2 - Math.sin(u * Math.PI) * 0.9 + u * u * 1.2); grp(fx, fy, r / 45, u * 6, () => { sk(rectP(-14, -7, 28, 14), { fill: '#f3b9c8', w: 1.4 }); sk(rectP(-14, -7, 12, 14), { fill: '#86b6d8', w: 1 }) }) }
+  const word = T().tellWord[c.kind]
+  if (word) txt(word, x + (c.kind === 'drop' ? -1 : 1) * r * 1.9, y - r * 0.55, Math.max(12, 15 * U), { col, wt: 600 })
+}
+const insidePos = () => { const b = ballGeo(G.sceneNow, G.Pv); return { x: b.x + b.r * 0.12, top: Math.max(0.16 * H, b.y - b.r), r: clamp(b.r * 0.2, 12 * U, 28 * U) } }
+// 飲みこまれた後の山田さん: 練り消しの上から出てくる
+function drawYamadaInside() {
+  const c = G.c
+  if (!gone('yamada') || c.st === 'idle' || G.phase === 'kiritsu') return
+  const { x, top, r } = insidePos(), b = ballGeo(G.sceneNow, G.Pv)
+  const k = c.dur ? clamp(c.t / c.dur, 0, 1) : 0
+  const lite = G.sceneNow === 'earth' || G.sceneNow === 'space' ? '#e8e6f6' : '#56554f'
+  if (c.st === 'tell') {   // ぼこっと膨らむ
+    const bulge = Math.sin(Math.min(1, k * 1.6) * Math.PI) * r * 0.7
+    sk(ellP(x, top + r * 0.2, r * 0.9, r * 0.35 + bulge * 0.6, Math.PI, Math.PI * 2), { fill: '#8f8e88', col: '#3b3a36', w: 1.4, seed: 870 })
+    for (let i = -1; i <= 1; i++) sk(lineP(x + i * r * 0.7, top - r * 0.5 - bulge * 0.4, x + i * r * 0.9, top - r * 0.95 - bulge * 0.4), { open: true, w: 1.4, col: lite, seed: 871 + i })
+    txt(T().tellWord.bulge, x + r * 2.2, top - r * 0.9, Math.max(12, 15 * U), { col: lite, wt: 600 })
+    return
+  }
+  const out = c.st === 'back' ? 1 - sm(k) : sm(c.t / 0.18)
+  if (out <= 0.02) return
+  const hy = top - r * 0.8 * out
+  cx.save(); cx.beginPath(); cx.rect(0, 0, W, top + r * 0.15); cx.clip()
+  yamadaFace(x, hy, r, c.st === 'ask' ? 'ask' : c.st === 'tattle' ? 'tattle' : 'look')
+  cx.restore()
+  if (c.st === 'tattle') { const up = sm(c.t / 0.25); sk(lineP(x + r * 1.1, top, x + r * 1.25, top - r * lerp(0.2, 2.2, up)), { open: true, w: 4, col: '#8f8e88', seed: 880 }); sk(ellP(x + r * 1.25, top - r * lerp(0.3, 2.4, up), r * 0.24, r * 0.28), { fill: '#efcfae', w: 1, seed: 881 }) }
 }
 function drawNote() {
   const x0 = 0.07 * W, y0 = 0.565 * H, x1 = 0.79 * W
@@ -689,7 +821,7 @@ function drawHints() {
   }
 }
 function drawChalkShot() {
-  if (!G.chalkShot) return
+  if (!G.chalkShot || G.chalkShot.t < 0) return
   const k = G.chalkShot.t / 0.32, e = G.items.desk === 0 ? eraserPos() : ballGeo(G.sceneNow, G.Pv)
   const x0 = teacherX() + 0.08 * W, y0 = 0.12 * H, x = lerp(x0, e.x, k), y = lerp(y0, e.y, k) - Math.sin(k * Math.PI) * 0.05 * H
   grp(x, y, U * (1 + k * 2), k * 9, () => sk(rectP(-6, -2, 12, 4), { fill: '#f6f6f2', w: 1 }))
@@ -704,9 +836,9 @@ function render() {
     const k = sm(G.trans.t / 0.9), b = ballGeo(G.sceneNow, G.Pv)
     cx.save(); cx.globalAlpha = 1 - k; cx.translate(b.x, b.y); cx.scale(lerp(1, 0.18, k), lerp(1, 0.18, k)); cx.translate(-b.x, -b.y); drawScene(G.trans.from); cx.restore(); cx.globalAlpha = 1
   }
-  drawFly(); drawParts(); drawChalkShot()
+  drawYamadaTell(); drawYamadaInside(); drawFly(); drawParts(); drawChalkShot()
   // 見られている間は画面のふちに赤い鉛筆の線
-  if (G.w.st === 'look' || G.w.st === 'caught') { cx.globalAlpha = G.w.st === 'caught' ? 0.8 : 0.45 + 0.15 * Math.sin(G.clk * 12); sk(rectP(5 * U, 5 * U, W - 10 * U, H - 10 * U), { col: '#bf3a2c', w: 4, j: 2 }); cx.globalAlpha = 1 }
+  if (G.w.st === 'look' || G.w.st === 'caught' || G.c.st === 'look' || G.c.st === 'tattle') { cx.globalAlpha = G.w.st === 'caught' || G.c.st === 'tattle' ? 0.8 : 0.45 + 0.15 * Math.sin(G.clk * 12); sk(rectP(5 * U, 5 * U, W - 10 * U, H - 10 * U), { col: '#bf3a2c', w: 4, j: 2 }); cx.globalAlpha = 1 }
   if ((G.phase === 'play' || G.phase === 'kiritsu') && G.strokes < 10) drawHints()
   if (G.flashBB > 0) { cx.fillStyle = `rgba(255,252,240,${G.flashBB})`; cx.fillRect(-20, -20, W + 40, H + 40) }
   cx.restore()
@@ -751,7 +883,15 @@ function showBest() { const b = loadBest(); $('#tBest').textContent = b ? T().be
 function rankIdx() { if (G.loop) return 10; const th = [0, 3, 12, 31.5, 40, 50, 60, 70, 89.4, 92]; let r = 0; for (let i = 0; i < th.length; i++) if (G.P >= th[i]) r = i; return r }
 function result() {
   const ri = rankIdx(), rk = T().ranks[ri], ate = G.ate.slice()
-  return { rank: ri, title: G.loop > 1 ? T().loopTitle.replace('{n}', G.loop) : rk.t, price: rk.price, comment: rk.c, mass: massText(G.P), size: G.loop ? T().loopSize : sizeLbl(G.P), ate, strokes: G.strokes, strikes: G.strikes, loop: G.loop, score: +scoreOf().toFixed(2), best: G.best, isBest: G.isBest, P: +G.P.toFixed(2), thrills: G.thrills, maxCombo: G.maxCombo, reason: G.endReason }
+  return { rank: ri, title: G.loop > 1 ? T().loopTitle.replace('{n}', G.loop) : rk.t, price: rk.price, comment: rk.c, mass: massText(G.P), size: G.loop ? T().loopSize : sizeLbl(G.P), ate, strokes: G.strokes, strikes: G.strikes, loop: G.loop, score: +scoreOf().toFixed(2), best: G.best, isBest: G.isBest, P: +G.P.toFixed(2), thrills: G.thrills, maxCombo: G.maxCombo, reason: G.endReason, tattles: G.tattles, ym: ymWord() }
+}
+// 鑑定書に載る山田さんの一言（告げ口の回数と、飲みこまれたかで変わる）
+function ymWord() {
+  const Y = T().ym, inside = G.ate.includes('yamada') || G.loop > 0 && G.c.turns > 0 && gone('yamada')
+  if (G.tattles >= 2) return Y.two
+  if (G.tattles === 1) return inside ? Y.oneIn : Y.one
+  if (G.c.turns === 0) return Y.none
+  return inside ? Y.zeroIn : Y.zero
 }
 function ateText(r, max = 5) {
   if (!r.ate.length) return T().certNone
@@ -775,8 +915,9 @@ function fillResult() {
   const r = G.result = result(), t = T()
   $('#cH').textContent = t.cert; $('#cRank').textContent = r.title
   $('#cItem').textContent = t.certItemV
-  $('#cDl').innerHTML = [[t.certMass, r.mass], [t.certSize, r.size], [t.certStroke, t.certStrokeV.replace('{n}', Math.floor(r.strokes / 2))], [t.certBest, r.isBest ? t.certNew : (r.best ? r.best.m : '')]].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')
+  $('#cDl').innerHTML = [[t.certMass, r.mass], [t.certSize, r.size], [t.certStroke, t.certStrokeV.replace('{n}', Math.floor(r.strokes / 2))], [t.certTattle, t.certTattleV.replace('{n}', r.tattles)], [t.certBest, r.isBest ? t.certNew : (r.best ? r.best.m : '')]].map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')
   $('#cAte').innerHTML = `<b>${t.certAte}</b>${ateText(r)}`
+  $('#cYm').innerHTML = `<b>${t.certYm}</b>「${r.ym}」`
   $('#cPriceL').textContent = t.certPrice; $('#cPrice').textContent = r.price; $('#cCmt').textContent = '「' + r.comment + '」'; $('#cBy').textContent = t.certBy
   const st = $('#stamp'); st.textContent = r.conf ? t.certConf : t.certStamp; st.className = r.conf ? 'conf' : ''
   $('#bSave').textContent = t.save; $('#bPost').textContent = t.post; $('#bAgain').textContent = t.again
@@ -798,8 +939,9 @@ async function drawCard() {
   g.fillStyle = '#b49b6c'; g.fillRect(180, 228, 720, 3)
   g.fillStyle = '#34332f'; g.font = F(600, r.title.length > 12 ? 58 : 72); g.fillText(r.title, 540, 310)
   const bc = document.createElement('canvas'); bc.width = 420; bc.height = 420; drawCertBall(bc); g.drawImage(bc, 120, 360, 400, 400)
-  g.textAlign = 'left'; let y = 430
-  for (const [a, b] of [[t.certMass, r.mass], [t.certSize, r.size], [t.certStroke, t.certStrokeV.replace('{n}', Math.floor(r.strokes / 2))], [t.certStrike, t.certStrikeV.replace('{n}', r.strikes)]]) { g.fillStyle = '#7a6a4e'; g.font = F(400, 32); g.fillText(a, 560, y); g.fillStyle = '#34332f'; g.font = F(600, 40); wrapText(g, b, 560, y + 48, 400, 46); y += 130 }
+  g.textAlign = 'left'; let y = 400
+  for (const [a, b] of [[t.certMass, r.mass], [t.certSize, r.size], [t.certStroke, t.certStrokeV.replace('{n}', Math.floor(r.strokes / 2))], [t.certStrike, t.certStrikeV.replace('{n}', r.strikes)], [t.certTattle, t.certTattleV.replace('{n}', r.tattles)]]) { g.fillStyle = '#7a6a4e'; g.font = F(400, 30); g.fillText(a, 560, y); g.fillStyle = '#34332f'; g.font = F(600, 38); wrapText(g, b, 560, y + 44, 400, 42); y += 98 }
+  g.fillStyle = '#7a6a4e'; g.font = F(400, 30); g.fillText(t.certYm, 140, 895); const ymW = g.measureText(t.certYm).width; g.fillStyle = '#34332f'; g.font = F(600, 34); g.fillText('「' + r.ym + '」', 140 + ymW + 16, 895)
   g.fillStyle = '#b49b6c'; g.fillRect(140, 930, 800, 2)
   g.fillStyle = '#7a6a4e'; g.font = F(400, 32); g.fillText(t.certAte, 140, 985); g.fillStyle = '#34332f'; g.font = F(600, 36); wrapText(g, ateText(r, 6), 140, 1040, 800, 48)
   g.fillStyle = '#b49b6c'; g.fillRect(140, 1130, 800, 2)
@@ -921,12 +1063,14 @@ if (/[?&]demo=[12]/.test(location.search)) {
   const go = () => {
     if (!window.__nkReady) return setTimeout(go, 200)
     $('#bStart').click()
-    let side = 0, stopAt = -1, resumeAt = 0, seen = ''
+    let side = 0, stopAt = -1, resumeAt = 0, seen = '', seenC = '', stopC = -1
     const step = () => {
       if (G.scene === 'end') { if (!G.demoAgain) { G.demoAgain = 1 } return }
       const w = G.w, t = G.t || 0
       if (w && w.st !== seen) { seen = w.st; if (w.st === 'tell') stopAt = t + 0.6 + Math.random() * 0.25; if (w.st === 'back' || w.st === 'fake' || w.st === 'idle') resumeAt = t + 0.4 }
-      const danger = w && (w.st === 'tell' || w.st === 'look' || w.st === 'caught') && stopAt >= 0 && t >= stopAt
+      const c = G.c
+      if (c && c.st !== seenC) { seenC = c.st; if (c.st === 'tell') stopC = t + 0.45 + Math.random() * 0.15; if (c.st === 'back' || c.st === 'ask' || c.st === 'idle') { stopC = -1; resumeAt = Math.max(resumeAt, t + 0.4) } }
+      const danger = (w && (w.st === 'tell' || w.st === 'look' || w.st === 'caught') && stopAt >= 0 && t >= stopAt) || (c && (c.st === 'tell' || c.st === 'look' || c.st === 'tattle') && stopC >= 0 && t >= stopC)
       if (G.phase === 'play' && !danger && t >= resumeAt) {
         side = 1 - side; const r = cv.getBoundingClientRect()
         const o = { bubbles: true, cancelable: true, clientX: r.left + r.width * (side ? 0.8 : 0.2), clientY: r.top + r.height * 0.72, pointerType: 'touch', pointerId: 7 }
@@ -943,7 +1087,7 @@ if (/[?&]demo=[12]/.test(location.search)) {
 // ---- 検証用の窓口 ----
 window.nk = {
   G, D, tap, start: startGame, result: () => G.result, rankIdx, fmtMass, massG, sizeLbl, lang: () => lang,
-  state: () => ({ loop: G.loop, roll: +(G.rollV || 0).toFixed(3), eraserX: G.items && G.items.desk === 0 ? Math.round(eraserPos().x) : null, phase: G.phase, scene: G.scene, sceneNow: G.sceneNow, t: +((G.t || 0).toFixed(3)), P: +((G.P || 0).toFixed(3)), stage: G.stage, w: G.w && { ...G.w }, strikes: G.strikes, strokes: G.strokes, combo: G.combo, ate: (G.ate || []).slice(), lock: G.lock, bub: G.bub && G.bub.text }),
+  state: () => ({ c: G.c && { ...G.c }, tattles: G.tattles, loop: G.loop, roll: +(G.rollV || 0).toFixed(3), eraserX: G.items && G.items.desk === 0 ? Math.round(eraserPos().x) : null, phase: G.phase, scene: G.scene, sceneNow: G.sceneNow, t: +((G.t || 0).toFixed(3)), P: +((G.P || 0).toFixed(3)), stage: G.stage, w: G.w && { ...G.w }, strikes: G.strikes, strokes: G.strokes, combo: G.combo, ate: (G.ate || []).slice(), lock: G.lock, bub: G.bub && G.bub.text }),
   sideXY: s => { const r = cv.getBoundingClientRect(); return { x: r.left + r.width * (s ? 0.8 : 0.2), y: r.top + r.height * 0.72 } },
   dbg: {
     pause(b = true) { G.paused = b; lastT = performance.now(); acc = 0 },

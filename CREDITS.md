@@ -36,3 +36,8 @@
 - snd/chalk.mp3: File:WWS Chalk.ogg（7秒を切り出し） / Work With Sounds / La Fonderie / CC BY 4.0
 - snd/break1.mp3: 75 CC0 breaking / falling / hit sfx / rubberduck / CC0
 - snd/break2.mp3: 75 CC0 breaking / falling / hit sfx / rubberduck / CC0
+- snd/creak1.mp3（椅子のきしみ）: 50 RPG sound effects / Kenney / CC0
+- snd/creak2.mp3（椅子のきしみ）: 50 RPG sound effects / Kenney / CC0
+- snd/cloth1.mp3（肩がぴくっ）: 50 RPG sound effects / Kenney / CC0
+- snd/cloth2.mp3（手を挙げる）: 50 RPG sound effects / Kenney / CC0
+- snd/drop.mp3（消しゴムを落とす）: 100 CC0 SFX #2 / rubberduck / CC0
