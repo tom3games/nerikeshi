@@ -41,7 +41,7 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 #loadBar i{display:block;height:100%;width:0;background:var(--pencil);transition:width .2s}
 
 /* タイトル */
-#vTitle .wrap{display:flex;flex-direction:column;padding:calc(18px + env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom)) 52px}
+#vTitle .wrap{display:flex;flex-direction:column;padding:calc(18px + env(safe-area-inset-top)) 16px calc(16px + calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px))) 52px}
 #tDate{font-size:14px;color:var(--pencil);transform:rotate(-1deg);align-self:flex-start;min-height:20px}
 #tH{margin-top:2.4svh;font-weight:600;font-size:min(13.4vw,62px,7.6svh);line-height:1.12;letter-spacing:.02em;transform:rotate(-2deg);transform-origin:0 50%}
 #tH span{display:block}
@@ -84,7 +84,7 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 
 /* 鑑定書 */
 #vEnd{background:#3d3b36}
-#vEnd .wrap{display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top)) 12px calc(8px + env(safe-area-inset-bottom))}
+#vEnd .wrap{display:flex;flex-direction:column;padding:calc(10px + env(safe-area-inset-top)) 12px calc(8px + calc(env(safe-area-inset-bottom) + var(--inapp-bot,0px)))}
 #certBox{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
 #cert{position:relative;width:100%;max-width:420px;max-height:100%;aspect-ratio:3/4.1;background:#fbf7ea;border:3px double #7a5b2e;outline:8px solid #fbf7ea;outline-offset:0;box-shadow:0 10px 26px rgba(0,0,0,.45);padding:5% 6% 4%;display:flex;flex-direction:column;container-type:size;transform:rotate(-.6deg)}
 #cert.in{animation:certIn .5s ease-out}
@@ -205,6 +205,6 @@ button{font-family:inherit;color:inherit;border:0;background:none;cursor:pointer
 <script src="sfx.js?v=2"></script>
 <script src="data.js?v=3"></script>
 <script src="game.js?v=3"></script>
-<script src="support.js?v=1" data-ja="消しゴム" data-en="a new eraser"></script>
+<script src="support.js?v=2" data-ja="消しゴム" data-en="a new eraser"></script>
 </body>
 </html>
